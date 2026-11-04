@@ -1,6 +1,6 @@
 /** Ranked plan search. Token, stem, and light fuzzy match. Not literal substring. */
 
-const GROUPS = ['Sections', 'Still open', 'Competitors', 'Evidence', 'Plan'];
+const GROUPS = ['Sections', 'KPIs', 'Claims', 'Tables', 'Still open', 'Competitors', 'Evidence', 'Plan'];
 
 const NAV = [
   ['Start here', 'start', '', ['what you are looking at', 'verdict', 'start here']],
@@ -74,7 +74,7 @@ export function tokenize(text) {
     .replace(/[’']/g, '')
     .replace(/,/g, '')
     .split(/[^a-z0-9]+/)
-    .filter((token) => token.length > 1);
+    .filter((token) => token.length > 1 || (token.length === 1 && token !== 'a' && token !== 'i'));
 }
 
 export function stem(word) {
@@ -167,8 +167,19 @@ function scoreItem(item, tokens) {
     score += 24;
   }
   if (item.fields.title.norm === phrase) score += 36;
-  if (tokens.length === 1 && item.group === 'Competitors' && item.fields.alias.raw.includes(tokens[0])) {
-    score += 30;
+  if (item.group === 'Competitors') {
+    const name = item.fields.title.raw[0] || '';
+    const query = tokens[0];
+    if (tokens.length === 1 && item.fields.alias.raw.includes(query)) score += 50;
+    else if (tokens.length === 1 && name && query.length >= 5 && Math.abs(name.length - query.length) <= 1 && levenshtein(name, query) <= 1) score += 50;
+    else if (tokens.length > 1 && item.fields.alias.norm.includes(tokens.join(' '))) score += 46;
+  }
+  if (item.group === 'Still open' && Array.isArray(item.aliases)) {
+    const covered = item.aliases.some((alias) => {
+      const phrase = tokenize(alias);
+      return phrase.length === tokens.length && phrase.every((token, index) => token === tokens[index]);
+    }) || (tokens.length === 1 && item.fields.badge.raw.includes(tokens[0]));
+    if (covered) score += 40;
   }
   return score * (0.5 + 0.5 * (matched / tokens.length));
 }
@@ -284,6 +295,155 @@ export function searchPlan(index, query, limit = 20) {
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
     .slice(0, limit);
+}
+
+const KIND_GROUP = {
+  kpi: 'KPIs',
+  chart: 'KPIs',
+  claim: 'Claims',
+  'table-row': 'Tables',
+  open: 'Still open',
+  competitor: 'Competitors',
+  evidence: 'Evidence',
+  play: 'Plan',
+  note: 'Sections',
+  panel: 'Sections',
+  narrative: 'Sections',
+};
+
+export const SEARCH_DEBOUNCE_MS = 120;
+
+export function debounce(fn, ms = SEARCH_DEBOUNCE_MS) {
+  if (ms > 150) throw new Error('Search debounce cannot exceed 150ms');
+  let timer = 0;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+export function snippet(text, query) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  const tokens = tokenize(query);
+  const lower = clean.toLowerCase();
+  let at = -1;
+  for (const token of tokens) {
+    at = lower.indexOf(token);
+    if (at >= 0) break;
+  }
+  if (at < 0) return clean.slice(0, 140);
+  const start = Math.max(0, at - 36);
+  const slice = clean.slice(start, start + 150);
+  return `${start ? '…' : ''}${slice}${start + 150 < clean.length ? '…' : ''}`;
+}
+
+export function pathLabel(paths = []) {
+  const set = new Set(paths);
+  const core = set.has('core');
+  const enterprise = set.has('enterprise');
+  if (core && enterprise) return 'Both paths';
+  if (enterprise) return 'Enterprise';
+  if (core) return 'Core';
+  return 'Both paths';
+}
+
+export function indexFromPack(pack) {
+  const items = [];
+  const seen = new Set();
+  (pack.sections || []).forEach((section) => {
+    addUnique(items, seen, {
+      group: 'Sections',
+      label: section.label,
+      go: section.id,
+      anchor: '',
+      aliases: section.id === 'resid' ? ['residuals', 'residual', 'still open', 'open items'] : [section.label],
+      browse: true,
+      paths: ['core', 'enterprise'],
+      kind: 'section',
+      itemId: `section-${section.id}`,
+      text: `${section.label} ${section.id}`,
+    });
+    if (section.id === 'comp') {
+      addUnique(items, seen, {
+        group: 'Evidence',
+        label: 'Evidence',
+        go: 'comp',
+        anchor: 'evidence',
+        aliases: ['screenshots', 'screenshot', 'gallery', 'comp5'],
+        browse: true,
+        paths: ['core', 'enterprise'],
+        kind: 'section',
+        itemId: 'section-evidence',
+        text: 'Screenshot gallery COMP5 evidence',
+      });
+    }
+  });
+  addUnique(items, seen, {
+    group: 'Sections',
+    label: 'Altogether',
+    go: 'start',
+    anchor: '',
+    aliases: ['altogether', 'both paths', 'side by side', 'compare paths'],
+    browse: true,
+    paths: ['core', 'enterprise'],
+    kind: 'section',
+    itemId: 'section-all',
+    text: 'Altogether compares Core 250–999 and Enterprise 1,000+',
+  });
+  (pack.items || []).forEach((item) => {
+    const group = KIND_GROUP[item.kind];
+    if (!group || !item.title) return;
+    addUnique(items, seen, {
+      group,
+      label: item.title,
+      go: item.section || 'start',
+      anchor: item.kind === 'evidence' ? 'evidence' : '',
+      aliases: item.aliases || [],
+      browse: false,
+      paths: item.paths || ['core', 'enterprise'],
+      kind: item.kind,
+      itemId: item.id,
+      badge: item.badge || '',
+      rival: item.rival || '',
+      text: [item.title, item.value, item.note, item.text, ...(item.aliases || [])].filter(Boolean).join(' '),
+    });
+  });
+  return items;
+}
+
+export function searchPack(index, query, path = 'all', limit = 20) {
+  const wide = searchPlan(index, query, 80).map((hit) => {
+    const paths = hit.paths || ['core', 'enterprise'];
+    const onPath = path === 'all' || paths.includes(path);
+    const baseScore = hit.score || 0;
+    return {
+      ...hit,
+      paths,
+      onPath,
+      pathLabel: pathLabel(paths),
+      snippet: snippet(hit.text || hit.label, query),
+      baseScore,
+      score: baseScore + (onPath ? 15 : 0),
+    };
+  });
+  wide.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
+  const hits = wide.slice(0, limit);
+  const trimmed = String(query || '').trim();
+  if (!trimmed) return hits;
+  const rank = new Map(hits.map((hit, index) => [hit, index]));
+  const best = new Map();
+  hits.forEach((hit) => best.set(hit.group, Math.max(best.get(hit.group) || 0, hit.score || 0)));
+  const names = [...best.keys()].sort((a, b) => {
+    const diff = best.get(b) - best.get(a);
+    if (diff) return diff;
+    const aRank = Math.min(...hits.filter((hit) => hit.group === a).map((hit) => rank.get(hit)));
+    const bRank = Math.min(...hits.filter((hit) => hit.group === b).map((hit) => rank.get(hit)));
+    return aRank - bRank;
+  });
+  const ordered = [];
+  names.forEach((name) => ordered.push(...hits.filter((hit) => hit.group === name)));
+  return ordered;
 }
 
 export function presentHits(index, query, limit = 20) {

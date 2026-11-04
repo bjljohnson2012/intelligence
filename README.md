@@ -26,7 +26,7 @@ People who are not signed in are redirected to `/login`. They do not receive the
 
 Sign-in mail is sent with Resend from **`ben@benjohnson.ai`** only. The Resend domain `benjohnson.ai` (`ede6ca6b-2a53-4ace-a11b-d3f1391535e8`) is verified (DKIM, SPF, MX, and CNAME). Do not send from `noreply@fieldschool.ai`. The code is kept only after Resend accepts the message. The key stays in the server environment. The session gate is live on https://intelligence.benjohnson.ai. Current proof is in [`docs/STATUS.md`](docs/STATUS.md).
 
-`POST /api/ask` still returns that same 401 after sign-in, until the plan answers are connected. The page then points at the closest sections.
+`POST /api/ask` answers from the pack for a signed-in allowlisted session and cites the item it used. Unsigned calls return 401. If the pack does not say, the status is Explicit Unknown and the citations point at items that still need clarification.
 
 ## Local
 
