@@ -70,6 +70,24 @@ let waitTimer = 0;
 
 function say(text) { msg.textContent = text; }
 
+function limitCopy(body) {
+  const data = body || {};
+  const cooldown = 'Wait about a minute, then request a new code.';
+  if (data.limit === 'cooldown' || data.message === cooldown) return cooldown;
+  const seconds = Math.max(1, Math.ceil(Number(data.retryAfterSec) || 1));
+  const minutes = Math.max(1, Math.ceil(seconds / 60));
+  const unit = minutes === 1 ? 'minute' : 'minutes';
+  const windowText = 'Too many codes for now. Try again in about ' + minutes + ' ' + unit + '.';
+  if (typeof data.message === 'string' && data.message.indexOf('Too many codes for now.') === 0) return data.message;
+  return windowText;
+}
+
+async function showLimit(res) {
+  let body = {};
+  try { body = await res.json(); } catch { body = {}; }
+  say(limitCopy(body));
+}
+
 function startWait() {
   let left = 60;
   again.disabled = true;
@@ -95,7 +113,7 @@ async function requestCode() {
     body: JSON.stringify({ email: email.value })
   });
   if (res.status === 429) {
-    say('Too many tries. Wait a minute and try again.');
+    await showLimit(res);
     return false;
   }
   if (!res.ok) {
@@ -127,7 +145,7 @@ form.addEventListener('submit', async (event) => {
       body: JSON.stringify({ email: email.value, code: code.value })
     });
     if (res.status === 429) {
-      say('Too many tries. Wait a minute and try again.');
+      await showLimit(res);
       return;
     }
     if (res.ok) {

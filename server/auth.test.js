@@ -105,6 +105,9 @@ test('unsigned visitors get the login page and not the plan', async () => {
     assert.match(html, /Codes expire in 5 minutes/);
     assert.equal(html.includes('10 minutes'), false);
     assert.match(html, /Only the newest code works; each new email replaces the last\./);
+    assert.match(html, /Wait about a minute, then request a new code\./);
+    assert.match(html, /Too many codes for now\. Try again in about /);
+    assert.equal(html.includes('Wait a minute'), false);
     assert.equal(html.includes('PLAN_MARKER'), false);
     assert.equal(html.includes('weekly attendance'), false);
     assert.equal(app.sent.length, 0);
@@ -236,6 +239,14 @@ test('code requests are rate limited without saying who is on the list', async (
   const distDir = await fixture();
   const app = await start({ distDir });
   try {
+    assert.equal(LIMITS.requestPerEmail, 10);
+    assert.equal(LIMITS.requestPerIp, 20);
+    assert.equal(LIMITS.requestWindowMs, 60 * 60 * 1000);
+    assert.equal(LIMITS.verifyPerEmail, 8);
+    assert.equal(LIMITS.verifyPerIp, 30);
+    assert.equal(LIMITS.verifyWindowMs, 15 * 60 * 1000);
+    assert.equal(LIMITS.cooldownMs, 60 * 1000);
+    assert.equal(LIMITS.maxAttempts, 5);
     for (let i = 0; i < LIMITS.requestPerEmail; i++) {
       const res = await post(app.base, '/api/auth/request-code', { email: 'nobody@example.com' });
       assert.equal(res.res.status, 200);
@@ -243,6 +254,96 @@ test('code requests are rate limited without saying who is on the list', async (
     }
     const blocked = await post(app.base, '/api/auth/request-code', { email: 'nobody@example.com' });
     assert.equal(blocked.res.status, 429);
+    assert.equal(blocked.json.ok, false);
+    assert.equal(typeof blocked.json.retryAfterSec, 'number');
+    assert.ok(blocked.json.retryAfterSec > 60);
+    assert.match(blocked.json.message, /^Too many codes for now\. Try again in about \d+ minutes\.$/);
+    assert.equal(blocked.json.message.includes('a minute'), false);
+    assert.equal(blocked.res.headers.get('retry-after'), String(blocked.json.retryAfterSec));
+    assert.equal(app.sent.length, 0);
+  } finally {
+    await app.close();
+    await rm(distDir, { recursive: true, force: true });
+  }
+});
+
+test('four code requests in one hour stay under the email budget', async () => {
+  const distDir = await fixture();
+  const app = await start({ distDir });
+  try {
+    assert.ok(LIMITS.requestPerEmail >= 10);
+    for (let i = 0; i < 4; i++) {
+      const res = await post(app.base, '/api/auth/request-code', { email: 'rate-proof@example.com' });
+      assert.equal(res.res.status, 200);
+      assert.deepEqual(res.json, { ok: true });
+      if (i < 3) app.clock.t += LIMITS.cooldownMs;
+    }
+    const early = await post(app.base, '/api/auth/request-code', { email: 'rate-proof@example.com' });
+    assert.equal(early.res.status, 429);
+    assert.deepEqual(early.json, {
+      ok: false,
+      message: 'Wait about a minute, then request a new code.',
+      retryAfterSec: 60,
+      limit: 'cooldown',
+    });
+    app.clock.t += 20 * 1000;
+    const mid = await post(app.base, '/api/auth/request-code', { email: 'rate-proof@example.com' });
+    assert.equal(mid.res.status, 429);
+    assert.equal(mid.json.retryAfterSec, 40);
+    assert.equal(mid.json.message, 'Wait about a minute, then request a new code.');
+    assert.equal(mid.json.limit, 'cooldown');
+    app.clock.t += mid.json.retryAfterSec * 1000;
+    const fifth = await post(app.base, '/api/auth/request-code', { email: 'rate-proof@example.com' });
+    assert.equal(fifth.res.status, 200);
+    assert.equal(app.sent.length, 0);
+  } finally {
+    await app.close();
+    await rm(distDir, { recursive: true, force: true });
+  }
+});
+
+test('an address window returns the measured wait in minutes', async () => {
+  const distDir = await fixture();
+  const app = await start({ distDir });
+  try {
+    for (let i = 0; i < LIMITS.requestPerIp; i++) {
+      const res = await post(app.base, '/api/auth/request-code', { email: `person${i}@example.com` });
+      assert.equal(res.res.status, 200);
+    }
+    const blocked = await post(app.base, '/api/auth/request-code', { email: 'extra@example.com' });
+    assert.equal(blocked.res.status, 429);
+    assert.equal(blocked.json.retryAfterSec, 60 * 60);
+    assert.equal(blocked.json.limit, 'window');
+    assert.equal(blocked.json.message, 'Too many codes for now. Try again in about 60 minutes.');
+    assert.equal(blocked.json.message.includes('a minute'), false);
+    assert.equal(app.sent.length, 0);
+  } finally {
+    await app.close();
+    await rm(distDir, { recursive: true, force: true });
+  }
+});
+
+test('too many verify tries return the measured wait', async () => {
+  const distDir = await fixture();
+  const app = await start({ distDir });
+  try {
+    for (let i = 0; i < LIMITS.verifyPerEmail; i++) {
+      const res = await post(app.base, '/api/auth/verify', { email: 'nobody@example.com', code: '000000' });
+      assert.equal(res.res.status, 401);
+    }
+    const blocked = await post(app.base, '/api/auth/verify', { email: 'nobody@example.com', code: '000000' });
+    assert.equal(blocked.res.status, 429);
+    assert.equal(blocked.json.ok, false);
+    assert.equal(blocked.json.retryAfterSec, 15 * 60);
+    assert.equal(blocked.json.limit, 'window');
+    assert.equal(blocked.json.message, 'Too many codes for now. Try again in about 15 minutes.');
+    assert.equal(blocked.json.message.includes('a minute'), false);
+    app.clock.t += (15 * 60 - 30) * 1000;
+    const almost = await post(app.base, '/api/auth/verify', { email: 'nobody@example.com', code: '000000' });
+    assert.equal(almost.res.status, 429);
+    assert.equal(almost.json.retryAfterSec, 30);
+    assert.equal(almost.json.message, 'Too many codes for now. Try again in about 1 minute.');
+    assert.equal(almost.json.message.includes('a minute'), false);
     assert.equal(app.sent.length, 0);
   } finally {
     await app.close();
