@@ -11,8 +11,8 @@ export const LIMITS = {
   codeTtlMs: 5 * 60 * 1000,
   sessionTtlSec: 7 * 24 * 60 * 60,
   cooldownMs: 60 * 1000,
-  requestPerEmail: 3,
-  requestPerIp: 10,
+  requestPerEmail: 10,
+  requestPerIp: 20,
   requestWindowMs: 60 * 60 * 1000,
   verifyPerEmail: 8,
   verifyPerIp: 30,
@@ -176,10 +176,37 @@ function sameOrigin(req) {
   try { return new URL(origin).host === req.get('host'); } catch { return false; }
 }
 
-function limited(buckets, key, limit, windowMs, now) {
+function waitMs(buckets, key, limit, now) {
   const rec = buckets.get(key);
-  if (!rec || rec.resetAt <= now) return false;
-  return rec.count >= limit;
+  if (!rec || rec.resetAt <= now || rec.count < limit) return 0;
+  return rec.resetAt - now;
+}
+
+function rateLimitMessage(kind, retryAfterSec) {
+  switch (kind) {
+    case 'cooldown':
+      return 'Wait about a minute, then request a new code.';
+    case 'window': {
+      const minutes = Math.max(1, Math.ceil(retryAfterSec / 60));
+      const unit = minutes === 1 ? 'minute' : 'minutes';
+      return `Too many codes for now. Try again in about ${minutes} ${unit}.`;
+    }
+    default: {
+      const unknown = kind;
+      throw new Error(`Unknown rate limit: ${unknown}`);
+    }
+  }
+}
+
+function tooMany(res, wait, kind) {
+  const retryAfterSec = Math.max(1, Math.ceil(wait / 1000));
+  res.set('Retry-After', String(retryAfterSec));
+  return res.status(429).json({
+    ok: false,
+    message: rateLimitMessage(kind, retryAfterSec),
+    retryAfterSec,
+    limit: kind,
+  });
 }
 
 function bump(buckets, key, windowMs, now) {
@@ -221,10 +248,13 @@ export function createApp({ env, sendEmail, distDir, now = () => Date.now() }) {
     const t = now();
     sweep(t);
     const ip = clientIp(req) || 'unknown';
-    const over = limited(buckets, `req:${email}`, LIMITS.requestPerEmail, LIMITS.requestWindowMs, t)
-      || limited(buckets, `reqip:${ip}`, LIMITS.requestPerIp, LIMITS.requestWindowMs, t)
-      || ((lastSent.get(email) || 0) + LIMITS.cooldownMs > t);
-    if (over) return res.status(429).json({ ok: false, message: 'Too many tries. Wait a minute and try again.' });
+    const windowWait = Math.max(
+      waitMs(buckets, `req:${email}`, LIMITS.requestPerEmail, t),
+      waitMs(buckets, `reqip:${ip}`, LIMITS.requestPerIp, t),
+    );
+    const coolWait = Math.max(0, (lastSent.get(email) || 0) + LIMITS.cooldownMs - t);
+    if (windowWait > 0) return tooMany(res, Math.max(windowWait, coolWait), 'window');
+    if (coolWait > 0) return tooMany(res, coolWait, 'cooldown');
     bump(buckets, `req:${email}`, LIMITS.requestWindowMs, t);
     bump(buckets, `reqip:${ip}`, LIMITS.requestWindowMs, t);
     lastSent.set(email, t);
@@ -263,10 +293,11 @@ export function createApp({ env, sendEmail, distDir, now = () => Date.now() }) {
     sweep(t);
     const ip = clientIp(req);
     const rateIp = ip || 'unknown';
-    if (limited(buckets, `ver:${email}`, LIMITS.verifyPerEmail, LIMITS.verifyWindowMs, t)
-      || limited(buckets, `verip:${rateIp}`, LIMITS.verifyPerIp, LIMITS.verifyWindowMs, t)) {
-      return res.status(429).json({ ok: false, message: 'Too many tries. Wait a minute and try again.' });
-    }
+    const verifyWait = Math.max(
+      waitMs(buckets, `ver:${email}`, LIMITS.verifyPerEmail, t),
+      waitMs(buckets, `verip:${rateIp}`, LIMITS.verifyPerIp, t),
+    );
+    if (verifyWait > 0) return tooMany(res, verifyWait, 'window');
     bump(buckets, `ver:${email}`, LIMITS.verifyWindowMs, t);
     bump(buckets, `verip:${rateIp}`, LIMITS.verifyWindowMs, t);
     if (!ip) return refused(res);
