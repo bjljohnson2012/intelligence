@@ -535,8 +535,14 @@ document.addEventListener('click', (event) => {
   const rival = event.target.closest('#rivalFil button');
   const kind = event.target.closest('#kindFil button');
   const shot = event.target.closest('#evidence .gitem');
+  const jump = event.target.closest('[data-go]');
   if (path) { go({ path: path.dataset.path, item: '' }, 'push'); return; }
   if (section) { go({ section: section.dataset.section, item: '', anchor: section.dataset.anchor }, 'push'); return; }
+  if (jump?.dataset.go) {
+    go({ section: jump.dataset.go, item: '' }, 'push');
+    document.getElementById(`t-${jump.dataset.go}`)?.scrollIntoView({ block: 'start' });
+    return;
+  }
   if (rival) {
     document.querySelectorAll('#rivalFil button').forEach((button) => button.setAttribute('aria-pressed', button === rival ? 'true' : 'false'));
     filterGallery();
