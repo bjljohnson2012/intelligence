@@ -72,16 +72,18 @@ function explicitUnknown(pack, pathHint, reason, hits) {
   };
 }
 
+function oneAnswer(hit) {
+  const plain = String(hit.plain || hit.label || '').replace(/\s+/g, ' ').trim();
+  const sentence = plain.split(/(?<=[.!?])\s/)[0] || plain;
+  return (sentence.length >= 48 ? sentence : plain).slice(0, 360);
+}
+
 function extractive(pack, question, pathHint, hits) {
-  const top = hits.filter((hit) => hit.itemId && (hit.baseScore || 0) >= 8).slice(0, 4);
+  const top = hits.filter((hit) => hit.itemId && !String(hit.itemId).startsWith('section-') && (hit.baseScore || 0) >= 8).slice(0, 3);
   if (!top.length) {
     return explicitUnknown(pack, pathHint, 'Not in the pack.', hits);
   }
-  const answer = top
-    .map((hit) => String(hit.text || hit.label).replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-    .map((text) => text.slice(0, 420))
-    .join(' ');
+  const answer = oneAnswer(top[0]);
   return {
     answer,
     path: responsePath(pathHint),

@@ -118,6 +118,58 @@ function applyPath() {
     }
     empty.hidden = !cards.length || cards.some((el) => !el.hidden);
   });
+  scopeNarrative();
+}
+
+function cell(rowName, index) {
+  const row = pack.compare.rows.find((entry) => entry[0] === rowName);
+  return row ? row[index + 1] : '';
+}
+
+function pathStory(path) {
+  const bandC = `Band C congregations ${cell('Congregations', 0)}; count ${cell('Count', 0)}; attendees ${cell('Attendees', 0)}.`;
+  const bandB = `Band B (1,000–1,999) congregations ${cell('Congregations', 1)}; count ${cell('Count', 1)}; attendees ${cell('Attendees', 1)}.`;
+  const bandA = `Band A (2,000+) congregations ${cell('Congregations', 2)}; count ${cell('Count', 2)}; attendees ${cell('Attendees', 2)}.`;
+  if (path === 'enterprise') {
+    return `${pack.hero.enterprise.lede} ${bandB} ${bandA} ${pack.compare.source}`;
+  }
+  return `${pack.hero.all.lede} ${bandC} ${bandB} ${bandA} ${pack.compare.source}`;
+}
+
+function coreOnlyStory(text) {
+  const value = text.toLowerCase();
+  const core = /band c|mid-size|250–999|250-999/.test(value);
+  const enterprise = /1,000|2,000|enterprise/.test(value);
+  return core && !enterprise;
+}
+
+function scopeNarrative() {
+  document.querySelectorAll('.lead, #t-start .panel p').forEach((node) => {
+    if (!node.dataset.packCopy) node.dataset.packCopy = node.innerHTML;
+    const original = node.dataset.packCopy.replace(/<[^>]+>/g, ' ');
+    const story = node.closest('#t-start') && /story so far/i.test(node.closest('.panel')?.innerText || '');
+    const lead = node.classList.contains('lead');
+    if (state.path === 'core' || !coreOnlyStory(original)) {
+      node.hidden = false;
+      if (node.innerHTML !== node.dataset.packCopy) node.innerHTML = node.dataset.packCopy;
+      return;
+    }
+    if (lead && node.closest('#t-start')) node.textContent = pack.hero[state.path].lede;
+    else if (story) node.textContent = pathStory(state.path);
+    else node.hidden = state.path === 'enterprise';
+  });
+  const steps = document.querySelector('#t-start .panel.exec .exhibit');
+  if (steps) {
+    let note = document.getElementById('pathSteps');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'pathSteps';
+      note.className = 'note';
+      steps.after(note);
+    }
+    const current = pack.paths[state.path];
+    note.textContent = `These steps are for ${current.label}: ${current.range}.`;
+  }
 }
 
 function renderHero() {
@@ -186,6 +238,8 @@ function showSection() {
     const same = button.dataset.section === state.section && !button.dataset.anchor;
     button.setAttribute('aria-selected', same ? 'true' : 'false');
   });
+  document.documentElement.dataset.path = state.path;
+  document.body.dataset.screen = state.section;
   document.querySelectorAll('.pathswitch button').forEach((button) => {
     button.setAttribute('aria-pressed', button.dataset.path === state.path ? 'true' : 'false');
   });
@@ -208,8 +262,8 @@ function fillRail(id) {
   }
   const section = pack.sections.find((entry) => entry.id === item.section);
   document.getElementById('rail-crumb').textContent = section ? section.label : 'Plan';
-  document.getElementById('rail-type').textContent = `${TYPE[item.kind] || 'Detail'} · ${pathName(item.paths)}`;
-  document.getElementById('rail-title').textContent = item.title;
+  document.getElementById('rail-type').textContent = '';
+  document.getElementById('rail-title').textContent = `${item.title} · ${TYPE[item.kind] || 'Detail'} / ${pathName(item.paths)}`;
   const status = STATUS[item.status] || '';
   const blocked = ['fail', 'partial', 'unknown', 'open', 'hold'].includes(item.status);
   const shot = document.querySelector(`[data-item="${CSS.escape(id)}"] img`);
@@ -266,8 +320,20 @@ function renderPalette() {
     const head = hit.group !== group ? `<div class="palgroup">${esc(hit.group)}</div>` : '';
     group = hit.group;
     const badge = hit.badge ? `<span class="badge b-unk">${esc(hit.badge)}</span>` : '';
-    return `${head}<button type="button" class="palhit${index === palIndex ? ' on' : ''}" data-i="${index}"><span class="palmain"><b>${esc(hit.label)}</b><small>${esc(hit.snippet || '')}</small></span><span class="pathtag">${esc(hit.pathLabel)}</span>${badge}</button>`;
+    const query = document.getElementById('q')?.value.trim() || '';
+    return `${head}<button type="button" class="palhit${index === palIndex ? ' on' : ''}" data-i="${index}"><span class="palmain"><b>${markText(hit.label, query)}</b><small>${markText(hit.snippet || '', query)}</small></span><span class="pathtag">${esc(hit.pathLabel)}</span>${badge}</button>`;
   }).join('');
+}
+
+function markText(text, query) {
+  let html = esc(text);
+  const tokens = [...new Set(query.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 1))];
+  tokens.sort((a, b) => b.length - a.length);
+  tokens.forEach((token) => {
+    const pattern = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    html = html.replace(new RegExp(`(${pattern})`, 'ig'), '<mark class="hitmark">$1</mark>');
+  });
+  return html;
 }
 
 function openPalette() {
@@ -314,7 +380,7 @@ function openHit(hit) {
   }
   const item = byId.get(hit.itemId);
   const path = state.path !== 'all' && !item.paths.includes(state.path) ? item.paths[0] : state.path;
-  go({ path, section: item.section || hit.go, item: item.id, anchor: hit.anchor }, 'push');
+  go({ path, item: item.id }, 'push');
 }
 
 function bandData(pathName) {
@@ -456,7 +522,7 @@ async function ask(question) {
     form.hidden = true;
     const block = document.createElement('div');
     block.className = data.status === 'answered' ? 'a' : 'a unknown';
-    const cites = (data.citations || []).map((cite, index) => `<button type="button" data-item="${esc(cite.itemId || '')}" data-section="${esc((cite.href || '').split('section=')[1]?.split('&')[0] || '')}">${index + 1}. ${esc(cite.label || cite.id)}</button>`).join(' ');
+    const cites = (data.citations || []).filter((cite) => cite.itemId && byId.has(cite.itemId)).map((cite, index) => `<button type="button" data-item="${esc(cite.itemId)}">${index + 1}. ${esc(cite.label || cite.id)}</button>`).join(' ');
     block.innerHTML = `<p>${esc(data.answer || data.unknownReason || 'The plan does not say.')}</p><p class="note">${esc(data.status === 'explicit_unknown' ? 'Explicit Unknown' : data.status === 'refused' ? 'Not a launch clearance' : 'From the plan')}</p><div class="raillinks">${cites}</div>`;
     out.insertBefore(block, out.children[1] || null);
   } catch {
@@ -508,6 +574,10 @@ document.getElementById('q').addEventListener('keydown', (event) => {
 });
 document.addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openPalette(); }
+  if (event.key === 'Enter' && !event.shiftKey && event.target?.id === 'askIn') {
+    event.preventDefault();
+    document.getElementById('askForm')?.requestSubmit();
+  }
   if (event.key === 'Escape') {
     if (document.getElementById('palette').open) closePalette();
     else if (state.item) go({ item: '' }, 'push');
@@ -522,11 +592,9 @@ document.getElementById('signout').addEventListener('click', async () => {
   await fetch('/api/auth/logout', { method: 'POST' });
   location.href = '/login';
 });
-document.getElementById('rail-close').addEventListener('click', () => go({ item: '' }, 'push'));
-document.getElementById('rail-crumb').addEventListener('click', () => {
-  const item = byId.get(state.item);
-  go({ section: item?.section || state.section, item: '' }, 'push');
-});
+document.getElementById('rail-close').addEventListener('click', () => go({ item: '' }, 'replace'));
+document.getElementById('rail-back').addEventListener('click', () => history.back());
+document.getElementById('rail-crumb').addEventListener('click', () => go({ item: '' }, 'push'));
 document.addEventListener('click', (event) => {
   const path = event.target.closest('.pathswitch [data-path]');
   const section = event.target.closest('#nav [data-section]');
@@ -556,7 +624,7 @@ document.addEventListener('click', (event) => {
   if (askPrompt) { ask(askPrompt.dataset.ask); return; }
   if (item?.dataset.item && !event.target.closest('#palette')) {
     if (shot && event.target.closest('img')) openShot(shot);
-    go({ item: item.dataset.item, section: byId.get(item.dataset.item)?.section || state.section }, 'push');
+    go({ item: item.dataset.item }, 'push');
   }
 });
 document.getElementById('stage').addEventListener('submit', (event) => {

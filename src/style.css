@@ -459,3 +459,20 @@ body.rail-open { }
 @media (min-width: 1440px) {
   .wrap { max-width: 1440px; }
 }
+html[data-path="core"] .pathswitch [data-path="core"],
+html[data-path="enterprise"] .pathswitch [data-path="enterprise"],
+html[data-path="all"] .pathswitch [data-path="all"] {
+  background: var(--teal-soft);
+  border-color: var(--teal);
+  color: var(--head);
+}
+header .searchbtn {
+  width: auto;
+  min-width: 0;
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  background: transparent;
+}
+mark.hitmark { background: #B2E1F6; color: inherit; }
+.railactions { display: flex; gap: 8px; align-items: flex-start; }
+body[data-screen="ask"] #hero { display: none; }

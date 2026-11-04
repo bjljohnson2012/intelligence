@@ -363,6 +363,7 @@ export function indexFromPack(pack) {
       kind: 'section',
       itemId: `section-${section.id}`,
       text: `${section.label} ${section.id}`,
+      plain: section.label,
     });
     if (section.id === 'comp') {
       addUnique(items, seen, {
@@ -376,6 +377,7 @@ export function indexFromPack(pack) {
         kind: 'section',
         itemId: 'section-evidence',
         text: 'Screenshot gallery COMP5 evidence',
+        plain: 'Screenshot gallery. What a church sees on the public marketing pages.',
       });
     }
   });
@@ -390,6 +392,7 @@ export function indexFromPack(pack) {
     kind: 'section',
     itemId: 'section-all',
     text: 'Altogether compares Core 250–999 and Enterprise 1,000+',
+    plain: 'Altogether compares Core 250–999 and Enterprise 1,000+.',
   });
   (pack.items || []).forEach((item) => {
     const group = KIND_GROUP[item.kind];
@@ -406,6 +409,7 @@ export function indexFromPack(pack) {
       itemId: item.id,
       badge: item.badge || '',
       rival: item.rival || '',
+      plain: [item.title, item.value, item.note, item.text].filter(Boolean).join(' '),
       text: [item.title, item.value, item.note, item.text, ...(item.aliases || [])].filter(Boolean).join(' '),
     });
   });
@@ -422,7 +426,7 @@ export function searchPack(index, query, path = 'all', limit = 20) {
       paths,
       onPath,
       pathLabel: pathLabel(paths),
-      snippet: snippet(hit.text || hit.label, query),
+      snippet: snippet(hit.plain || hit.label, query),
       baseScore,
       score: baseScore + (onPath ? 15 : 0),
     };

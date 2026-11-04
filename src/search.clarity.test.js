@@ -55,6 +55,7 @@ test('clarity queries land on the pack item they name', () => {
     assert.ok(hit.snippet || hit.snippet === '', query);
     assert.ok(hit.pathLabel, query);
     assert.ok(check(hit), `${query} -> ${hit.group} ${hit.badge} ${hit.label}`);
+    assert.equal(/\bresid\b/.test(hit.snippet), false, query);
   }
 });
 
