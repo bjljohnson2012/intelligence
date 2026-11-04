@@ -15,10 +15,6 @@ if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
 if (!process.env.RESEND_API_KEY || !process.env.AUTH_FROM_EMAIL) {
   console.error('RESEND_API_KEY and AUTH_FROM_EMAIL are required before anyone can receive a sign-in code');
 }
-if (process.env.AUTH_FROM_EMAIL && !process.env.AUTH_FROM_EMAIL.includes('ben@benjohnson.ai')) {
-  console.error('AUTH_FROM_EMAIL must be ben@benjohnson.ai');
-  process.exit(1);
-}
 
 const port = Number(process.env.PORT || 8787);
 const host = process.env.HOST || '127.0.0.1';

@@ -26,7 +26,7 @@ async function start(opts = {}) {
     env: {
       SESSION_SECRET: SECRET,
       ALLOWLIST_EMAILS: ALLOW,
-      AUTH_FROM_EMAIL: 'ben@benjohnson.ai',
+      AUTH_FROM_EMAIL: 'Intelligence <noreply@fieldschool.ai>',
     },
     sendEmail: async (msg) => {
       if (opts.failSend) throw new Error('mail down');

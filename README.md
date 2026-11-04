@@ -24,7 +24,7 @@ The login page asks for an email and a 6-digit code. Addresses that are not on t
 
 People who are not signed in are redirected to `/login`. They do not receive the plan HTML, scripts, or `/data` files. API calls without a session return `401` `{"status":"refused","unknownReason":"Sign-in required"}`.
 
-Sign-in mail is sent with Resend from **`ben@benjohnson.ai`** (the `benjohnson.ai` domain is verified in Resend). The key stays in the server environment.
+Sign-in codes are sent with Resend. The only verified sending domain today is fieldschool.ai, so mail comes from `Intelligence <noreply@fieldschool.ai>` until a benjohnson.ai domain is verified in Resend. Change `AUTH_FROM_EMAIL` then. Shipping does not wait on that domain. The key stays in the server environment.
 
 `POST /api/ask` still returns that same 401 after sign-in, until the plan answers are connected. The page then points at the closest sections.
 
@@ -42,7 +42,7 @@ npm run start          # node server/index.js on 127.0.0.1:8787
 Copy `deploy/.env.example` to `.env` in the repo root (or `deploy/.env`) before `npm run start`. Set `SESSION_SECRET` (`openssl rand -base64 48`), `RESEND_API_KEY`, and leave:
 
 ```bash
-AUTH_FROM_EMAIL=ben@benjohnson.ai
+AUTH_FROM_EMAIL="Intelligence <noreply@fieldschool.ai>"
 ALLOWLIST_EMAILS=bjljohnson2012@gmail.com,alexander.varden@gmail.com
 PORT=8787
 HOST=127.0.0.1
@@ -60,7 +60,7 @@ Notes and the Caddy site block are in [`deploy/`](deploy/).
 cp /opt/intelligence/deploy/.env.example /opt/intelligence/.env
 chmod 600 /opt/intelligence/.env
 # fill SESSION_SECRET and RESEND_API_KEY
-# AUTH_FROM_EMAIL=ben@benjohnson.ai
+# leave AUTH_FROM_EMAIL as in deploy/.env.example (noreply@fieldschool.ai) until benjohnson.ai is verified
 ```
 
 Caddy for this host runs in Docker (`ae-coach-caddy-1`). Inside that container, `127.0.0.1` is not the VPS host. `deploy.sh` starts Node with `--network container:ae-coach-caddy-1` so Caddy's `reverse_proxy 127.0.0.1:8787` reaches it, and port 8787 is not opened on the public internet. If the Caddy container is recreated, restart `intelligence` (it shares that network namespace).
