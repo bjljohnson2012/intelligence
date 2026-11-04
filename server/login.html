@@ -30,6 +30,12 @@
   .msg { color:var(--head); min-height:1.4em; }
   .card { overflow:visible; }
   .foot { margin-top:18px; padding-left:1px; font-size:12px; letter-spacing:0; text-transform:uppercase; color:var(--muted); overflow:visible; }
+  @media (max-width: 480px) {
+    body { align-items: start; padding: 16px 0 24px; }
+    .card { padding: 22px 16px; }
+    h1 { font-size: 24px; }
+    .foot { white-space: normal; }
+  }
 </style>
 </head>
 <body>
