@@ -1,2 +1,49 @@
-{"title":"What churches say they value (71 coded reviews of rival and legacy products)","refresh":"Manual. Re-code when 30+ current Amplify reviews exist.","source":"2026-11-04-clarity-value-story.md (Capterra, n=71, one coder)",
-"items":[["Easy for non-tech staff and volunteers",70],["A real person answers",46],["Price feels fair",34],["Everything in one place",28],["Reports / getting data out",27],["Time back to ministry",20],["Smooth move from old system",20],["Giving growth",0]]}
+{
+  "title": "What churches say they value (71 coded reviews of rival and legacy products)",
+  "unit": "of 71",
+  "refresh": "Manual. Re-code when 30+ current Amplify reviews exist.",
+  "source": "2026-11-04-clarity-value-story.md (Capterra, n=71, one coder, rivals and legacy F1, not Amplify)",
+  "caveat": "Counts are about N of 71 from the CM2 percent labels (one coder). Not current Amplify proof. R3 public n=0.",
+  "items": [
+    {
+      "label": "Easy for non-tech staff and volunteers",
+      "of71": 50,
+      "cm2Percent": 70
+    },
+    {
+      "label": "A real person answers",
+      "of71": 33,
+      "cm2Percent": 46
+    },
+    {
+      "label": "Price feels fair",
+      "of71": 24,
+      "cm2Percent": 34
+    },
+    {
+      "label": "Everything in one place",
+      "of71": 20,
+      "cm2Percent": 28
+    },
+    {
+      "label": "Reports / getting data out",
+      "of71": 19,
+      "cm2Percent": 27
+    },
+    {
+      "label": "Time back to ministry",
+      "of71": 14,
+      "cm2Percent": 20
+    },
+    {
+      "label": "Smooth move from old system",
+      "of71": 14,
+      "cm2Percent": 20
+    },
+    {
+      "label": "Giving growth",
+      "of71": 0,
+      "cm2Percent": 0
+    }
+  ]
+}

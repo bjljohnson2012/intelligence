@@ -1,0 +1,123 @@
+{
+  "source": "2026-11-04 amplify module screenshot compares. COMP5 only. No amplify-modules folder.",
+  "proof": "Marketing pages captured 2026-11-03/04. Not logged-in product proof.",
+  "modules": [
+    {
+      "id": "suite",
+      "name": "Suite",
+      "move": "steal",
+      "decision": "Steal the one-vendor people, gifts, and books story. Refuse weeks-not-months without a cockpit.",
+      "amplify": ["mb_amplify.png", "mb_amplify_pricing_or_cta.png"],
+      "rivals": [],
+      "unknown": false
+    },
+    {
+      "id": "first-screen",
+      "name": "First screen",
+      "move": "refuse",
+      "decision": "Refuse Equip as the Core open. Counter by leading People, Giving, and Accounting.",
+      "amplify": ["mb_home.png"],
+      "rivals": ["pco_home.png", "pushpay_home.png", "tithely_home.png", "subsplash_home.png", "realm_home.png"],
+      "unknown": false
+    },
+    {
+      "id": "people",
+      "name": "People",
+      "move": "refuse",
+      "decision": "Refuse an ease fight against Planning Center. Steal the finance trail once the person record is shared.",
+      "amplify": ["mb_amplify.png"],
+      "rivals": ["pco_home.png"],
+      "unknown": false
+    },
+    {
+      "id": "giving",
+      "name": "Giving",
+      "move": "refuse",
+      "decision": "Refuse grow-giving. 0 of 71. Steal gift-to-books only after R2 clears.",
+      "amplify": ["mb_giving.png"],
+      "rivals": ["pco_giving_vp.png", "pushpay_home.png"],
+      "unknown": false
+    },
+    {
+      "id": "accounting",
+      "name": "Accounting",
+      "move": "steal",
+      "decision": "Steal native fund accounting against Planning Center, Tithely, and Subsplash. Near parity with Realm. Do not claim Realm lacks a general ledger.",
+      "amplify": ["mb_amplify.png"],
+      "rivals": ["realm_home.png", "realm_or_acs_pricing.png"],
+      "unknown": false
+    },
+    {
+      "id": "service",
+      "name": "Service planning",
+      "move": "counter",
+      "decision": "Counter Pushpay tier gates only with a sourced ungated story. Otherwise Explicit Unknown.",
+      "amplify": ["mb_amplify.png"],
+      "rivals": ["pushpay_chms_ccb.png"],
+      "unknown": false
+    },
+    {
+      "id": "websites",
+      "name": "Websites",
+      "move": "refuse",
+      "decision": "Refuse an app or TV polish fight against Subsplash.",
+      "amplify": ["mb_amplify.png"],
+      "rivals": ["subsplash_home.png", "subsplash_pricing.png"],
+      "unknown": false
+    },
+    {
+      "id": "mobile",
+      "name": "Mobile app",
+      "move": "counter",
+      "decision": "Counter media-first rivals with people, giving, and books in one login.",
+      "amplify": ["mb_amplify.png"],
+      "rivals": ["subsplash_home.png"],
+      "unknown": false
+    },
+    {
+      "id": "check-in",
+      "name": "Check-in",
+      "move": "unknown",
+      "decision": "Explicit Unknown. Check-in is not named on the public Amplify module list.",
+      "amplify": [],
+      "rivals": ["pco_home.png"],
+      "unknown": true
+    },
+    {
+      "id": "events",
+      "name": "Standalone events",
+      "move": "unknown",
+      "decision": "Explicit Unknown. Do not imply parity.",
+      "amplify": [],
+      "rivals": [],
+      "unknown": true
+    },
+    {
+      "id": "equip",
+      "name": "Equip",
+      "move": "refuse",
+      "decision": "Not the Core lead. Park it off the cold open.",
+      "amplify": ["mb_equip_hero.png", "mb_equip_pricing.png"],
+      "rivals": [],
+      "unknown": false
+    },
+    {
+      "id": "pricing",
+      "name": "Pricing",
+      "move": "unknown",
+      "decision": "Amplify is quote-only. Our rates are Explicit Unknown (R8). Planning Center and Tithely publish price.",
+      "amplify": ["mb_amplify_pricing_or_cta.png"],
+      "rivals": ["pco_pricing.png", "tithely_pricing.png", "breeze_pricing.png"],
+      "unknown": true
+    },
+    {
+      "id": "switch",
+      "name": "Switch",
+      "move": "counter",
+      "decision": "Safe Switch is FAIL (R1). Refuse weeks-not-months. Counter needs a cockpit we do not have.",
+      "amplify": ["mb_amplify.png"],
+      "rivals": ["pushpay_home.png"],
+      "unknown": false
+    }
+  ]
+}

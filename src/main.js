@@ -1,5 +1,7 @@
 import Chart from 'chart.js/auto';
 import { SEARCH_DEBOUNCE_MS, debounce, indexFromPack, searchPack } from './search.js';
+import { sayCheck } from './say.js';
+import { installV2, isAdminEmail, opensDetail, refreshV2, visibleSection } from './v2.js';
 
 const TYPE = {
   kpi: 'KPI',
@@ -24,7 +26,9 @@ const STATUS = {
   pass: 'Pass, still open',
 };
 
-const state = { path: 'core', section: 'start', item: '' };
+const state = { path: 'core', section: 'start', item: '', plan: 'commercial', admin: false };
+const EXTRA_SECTIONS = ['evidence', 'implement'];
+let v2ctx = null;
 let pack = null;
 let byId = new Map();
 let searchIndex = [];
@@ -47,11 +51,13 @@ function readUrl() {
   const path = ['core', 'enterprise', 'all'].includes(params.get('path')) ? params.get('path') : 'core';
   const section = params.get('section') || 'start';
   const item = params.get('item') || '';
-  return { path, section, item };
+  const plan = params.get('plan') === '2027' ? '2027' : 'commercial';
+  return { path, section, item, plan };
 }
 
 function urlFor(next) {
   const params = new URLSearchParams();
+  params.set('plan', next.plan || 'commercial');
   params.set('path', next.path);
   if (next.section && next.section !== 'start') params.set('section', next.section);
   if (next.item) params.set('item', next.item);
@@ -177,7 +183,7 @@ function renderHero() {
   const root = document.getElementById('hero');
   const kpis = hero.kpiIds.map((id) => byId.get(id)).filter(Boolean);
   const compare = state.path === 'all' ? renderCompare() : '';
-  root.innerHTML = `<section class="pathbanner" aria-live="polite"><div><p class="eyebrow">${esc(pathName(state.path === 'all' ? ['core', 'enterprise'] : [state.path]))}</p><h2>${esc(hero.title)}</h2><p>${esc(hero.lede)}</p><p class="note">Live Core stays HOLD. This site is planning only.</p></div><code class="urlchip">?path=${esc(state.path)}</code></section><div class="kpis">${kpis.map(kpiButton).join('')}</div>${compare}`;
+  root.innerHTML = `<div class="kpis">${kpis.map(kpiButton).join('')}</div>${compare}<p class="note">Live Core stays HOLD. Planning only. ${esc(hero.lede)}</p>`;
 }
 
 function kpiButton(item) {
@@ -229,11 +235,20 @@ function renderSections() {
 }
 
 function showSection() {
-  const known = new Set(pack.sections.map((section) => section.id));
+  state.section = visibleSection(state.section, state.admin);
+  const known = new Set([...pack.sections.map((section) => section.id), ...EXTRA_SECTIONS]);
   if (!known.has(state.section)) state.section = 'start';
+  const lock = document.getElementById('councilLock');
+  if (lock) lock.hidden = true;
   document.querySelectorAll('section.tab').forEach((section) => {
+    if (section.id === 'councilLock') return;
+    if (section.dataset.folded === '1') {
+      section.hidden = true;
+      return;
+    }
     section.hidden = section.dataset.screen !== state.section;
   });
+  if (state.section === 'council' && state.admin) loadCouncil();
   document.querySelectorAll('#nav [data-section]').forEach((button) => {
     const same = button.dataset.section === state.section && !button.dataset.anchor;
     button.setAttribute('aria-selected', same ? 'true' : 'false');
@@ -303,7 +318,9 @@ function closeRail() {
 
 function paletteHits() {
   const query = document.getElementById('q')?.value.trim() || '';
-  return searchPack(searchIndex, query, state.path, 20);
+  const hits = searchPack(searchIndex, query, state.path, 20);
+  if (state.admin) return hits;
+  return hits.filter((hit) => hit.go !== 'council' && !/council/i.test(`${hit.label} ${hit.group}`));
 }
 
 function renderPalette() {
@@ -354,9 +371,12 @@ function closePalette() {
 }
 
 function go(next, mode) {
+  const requested = next.section;
+  if (next.plan) state.plan = next.plan;
   if (next.path) state.path = next.path;
   if (next.section) state.section = next.section;
   if ('item' in next) state.item = next.item;
+  state.section = visibleSection(state.section, state.admin);
   if (state.item && state.path !== 'all') {
     const item = byId.get(state.item);
     if (item && !item.paths.includes(state.path)) state.item = '';
@@ -368,7 +388,11 @@ function go(next, mode) {
   updateCharts();
   if (state.item) fillRail(state.item);
   else closeRail();
+  syncV2();
   writeUrl(mode);
+  if (requested && opensDetail(requested)) {
+    document.querySelector(`#t-${state.section} details.detailfold`)?.setAttribute('open', '');
+  }
   if (next.anchor) document.getElementById(next.anchor)?.scrollIntoView({ block: 'start' });
 }
 
@@ -454,7 +478,7 @@ function updateCharts() {
           maintainAspectRatio: false,
           indexAxis: 'y',
           plugins: { legend: { display: false } },
-          scales: { x: { max: 100, ticks: { callback: (value) => `${value}%` } } },
+          scales: { x: { max: pack.charts.values.unit === 'of 71' ? 71 : 100, ticks: { callback: (value) => (pack.charts.values.unit === 'of 71' ? `${value} of 71` : `${value}%`) } } },
         },
       });
     } else {
@@ -499,13 +523,37 @@ function askNode(className, text) {
   return node;
 }
 
-async function ask(question) {
-  const out = document.getElementById('askOut');
+let councilLoaded = false;
+
+async function loadCouncil() {
+  if (councilLoaded || !state.admin) return;
+  const response = await fetch('/api/admin/council');
+  if (!response.ok) return;
+  const data = await response.json();
+  const section = document.getElementById('t-council');
+  if (section && data.html) section.innerHTML = data.html;
+  councilLoaded = true;
+}
+
+function syncV2() {
+  if (!v2ctx) return;
+  v2ctx.plan = state.plan;
+  v2ctx.path = state.path;
+  v2ctx.section = state.section;
+  v2ctx.admin = state.admin;
+  refreshV2();
+}
+
+async function ask(question, host) {
+  const out = host || document.getElementById('askOut');
   const form = document.getElementById('askState');
+  if (!out) return;
   out.prepend(askNode('q', question));
-  form.hidden = false;
-  form.className = 'askstate loading';
-  form.textContent = 'Reading the plan…';
+  if (form) {
+    form.hidden = false;
+    form.className = 'askstate loading';
+    form.textContent = 'Reading the plan…';
+  }
   try {
     const response = await fetch('/api/ask', {
       method: 'POST',
@@ -514,21 +562,26 @@ async function ask(question) {
     });
     const data = await response.json().catch(() => null);
     if (!response.ok || !data) {
-      form.className = 'askstate error';
-      form.innerHTML = `<p>Couldn't answer — try again.</p><button type="button" id="askRetry">Retry</button>`;
-      document.getElementById('askRetry').onclick = () => ask(question);
+      if (form) {
+        form.className = 'askstate error';
+        form.innerHTML = `<p>Couldn't answer — try again.</p><button type="button" id="askRetry">Retry</button>`;
+        document.getElementById('askRetry').onclick = () => ask(question, host);
+      }
       return;
     }
-    form.hidden = true;
+    if (form) form.hidden = true;
     const block = document.createElement('div');
     block.className = data.status === 'answered' ? 'a' : 'a unknown';
     const cites = (data.citations || []).filter((cite) => cite.itemId && byId.has(cite.itemId)).map((cite, index) => `<button type="button" data-item="${esc(cite.itemId)}">${index + 1}. ${esc(cite.label || cite.id)}</button>`).join(' ');
-    block.innerHTML = `<p>${esc(data.answer || data.unknownReason || 'The plan does not say.')}</p><p class="note">${esc(data.status === 'explicit_unknown' ? 'Explicit Unknown' : data.status === 'refused' ? 'Not a launch clearance' : 'From the plan')}</p><div class="raillinks">${cites}</div>`;
+    const verdict = data.status === 'answered' ? 'Allowed' : data.status === 'refused' ? 'Refused' : 'Unknown';
+    block.innerHTML = `<p>${esc(data.answer || data.unknownReason || 'The plan does not say.')}</p><p class="note">${esc(verdict)}</p><div class="raillinks">${cites}</div>`;
     out.insertBefore(block, out.children[1] || null);
   } catch {
-    form.className = 'askstate error';
-    form.innerHTML = `<p>Couldn't answer — try again.</p><button type="button" id="askRetry">Retry</button>`;
-    document.getElementById('askRetry').onclick = () => ask(question);
+    if (form) {
+      form.className = 'askstate error';
+      form.innerHTML = `<p>Couldn't answer — try again.</p><button type="button" id="askRetry">Retry</button>`;
+      document.getElementById('askRetry').onclick = () => ask(question, host);
+    }
   }
 }
 
@@ -539,12 +592,33 @@ function bootError() {
   document.getElementById('bootRetry').onclick = () => { boot.textContent = 'Reading the plan…'; start(); };
 }
 
+async function loadJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(url);
+  return response.json();
+}
+
 async function start() {
   const boot = document.getElementById('boot');
   try {
-    const response = await fetch('/data/pack.json');
-    if (!response.ok) throw new Error('pack');
-    pack = await response.json();
+    const [plan, social, compares, icp, evidence, residuals, rivals, plan2027, me] = await Promise.all([
+      loadJson('/data/pack.json'),
+      loadJson('/social/buyers-see-say.json'),
+      loadJson('/data/amplify-compares.json'),
+      loadJson('/data/icp-jtbd.json'),
+      loadJson('/data/evidence-decisions.json'),
+      loadJson('/data/residuals.json'),
+      loadJson('/data/competitors.json'),
+      loadJson('/data/plan-2027.json'),
+      fetch('/api/auth/me').then((response) => (response.ok ? response.json() : { email: '' })).catch(() => ({ email: '' })),
+    ]);
+    pack = plan;
+    state.admin = isAdminEmail(me.email);
+    v2ctx = {
+      pack, social, compares, icp, evidence, residuals, rivals: rivals.rivals, plan2027,
+      admin: state.admin, plan: 'commercial', path: 'core', section: 'start',
+      sayCheck, ask, go: (next) => go(next, 'push'),
+    };
   } catch {
     bootError();
     return;
@@ -554,11 +628,13 @@ async function start() {
   boot.hidden = true;
   renderNav();
   renderSections();
+  installV2(v2ctx);
   built = true;
   const initial = readUrl();
   state.path = initial.path;
   state.section = initial.section;
   state.item = initial.item;
+  state.plan = initial.plan;
   go({}, 'replace');
 }
 
@@ -593,17 +669,23 @@ document.getElementById('signout').addEventListener('click', async () => {
   location.href = '/login';
 });
 document.getElementById('rail-close').addEventListener('click', () => go({ item: '' }, 'replace'));
-document.getElementById('rail-back').addEventListener('click', () => history.back());
+document.getElementById('rail-back').addEventListener('click', () => go({ item: '' }, 'replace'));
 document.getElementById('rail-crumb').addEventListener('click', () => go({ item: '' }, 'push'));
 document.addEventListener('click', (event) => {
+  const planButton = event.target.closest('.planswitch [data-plan]');
   const path = event.target.closest('.pathswitch [data-path]');
   const section = event.target.closest('#nav [data-section]');
   const item = event.target.closest('[data-item]');
   const askPrompt = event.target.closest('[data-ask]');
   const rival = event.target.closest('#rivalFil button');
   const kind = event.target.closest('#kindFil button');
-  const shot = event.target.closest('#evidence .gitem');
+  const shot = event.target.closest('#evGrid .gitem, #evidence .gitem, .comparecard .gitem');
   const jump = event.target.closest('[data-go]');
+  if (shot && event.target.closest('img, figcaption')) {
+    openShot(shot);
+    return;
+  }
+  if (planButton) { go({ plan: planButton.dataset.plan, item: '' }, 'push'); return; }
   if (path) { go({ path: path.dataset.path, item: '' }, 'push'); return; }
   if (section) { go({ section: section.dataset.section, item: '', anchor: section.dataset.anchor }, 'push'); return; }
   if (jump?.dataset.go) {
@@ -623,7 +705,8 @@ document.addEventListener('click', (event) => {
   }
   if (askPrompt) { ask(askPrompt.dataset.ask); return; }
   if (item?.dataset.item && !event.target.closest('#palette')) {
-    if (shot && event.target.closest('img')) openShot(shot);
+    const drill = event.target.closest('button.kpi, .drill, .raillinks button, .cellbtn');
+    if (!drill) return;
     go({ item: item.dataset.item }, 'push');
   }
 });
@@ -639,8 +722,9 @@ document.getElementById('stage').addEventListener('submit', (event) => {
 window.addEventListener('popstate', () => {
   const next = readUrl();
   state.path = next.path;
-  state.section = next.section;
+  state.section = visibleSection(next.section, state.admin);
   state.item = next.item;
+  state.plan = next.plan;
   if (!built) return;
   applyPath();
   filterGallery();
@@ -649,6 +733,7 @@ window.addEventListener('popstate', () => {
   updateCharts();
   if (state.item) fillRail(state.item);
   else closeRail();
+  syncV2();
 });
 
 function filterGallery() {
