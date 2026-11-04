@@ -20,7 +20,7 @@ tar czf "$TAR" \
   --exclude node_modules \
   --exclude .env \
   --exclude deploy/.env \
-  dist server package.json package-lock.json deploy
+  dist server src package.json package-lock.json deploy
 "${SCP[@]}" "$TAR" "$HOST:/tmp/intelligence-src.tgz"
 rm -f "$TAR"
 
