@@ -4,7 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 
-const loginHtml = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'login.html'), 'utf8');
+const loginPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'login.html');
+const loginPage = () => readFileSync(loginPath, 'utf8');
 
 export const LIMITS = {
   codeTtlMs: 10 * 60 * 1000,
@@ -145,7 +146,7 @@ export function createApp({ env, sendEmail, distDir, now = () => Date.now() }) {
     res.set('Cache-Control', 'no-store');
     res.set('X-Robots-Tag', 'noindex, nofollow');
     if (readSession(req, secret, allowlist, now)) return res.redirect(302, '/');
-    res.type('html').send(loginHtml);
+    res.type('html').send(loginPage());
   });
 
   app.post('/api/auth/request-code', async (req, res) => {
