@@ -1,0 +1,11 @@
+{"refresh":"Update when an owner clears an item. Last locked 2026-11-04.","source":"2026-11-04-named-residuals.md",
+"items":[
+{"id":"R1","plain":"A screen that shows a switching church how many givers and dollars have moved","status":"Not built","state":"fail","clears":"Product ships the progress view, a finance sign-off step and an overlap policy, with a demo link","owner":"Product"},
+{"id":"R2","plain":"A recorded demo of a gift landing on the person and in the books, on the product we sell","status":"Promising recordings, not confirmed","state":"partial","clears":"Confirm or record the full path; write the run-both-systems options","owner":"Product / account executives"},
+{"id":"R3","plain":"Independent proof that today's Amplify is easy and well supported","status":"Unknown (0 public reviews)","state":"unknown","clears":"30+ current independent reviews or a customer survey with a stated method","owner":"Research / Marketing"},
+{"id":"R4","plain":"How often we win or lose against Planning Center and Pushpay","status":"Unknown (only 2 known cases)","state":"unknown","clears":"Closed-lost reasons coded by rival in the CRM at a usable sample","owner":"Sales ops (CRM)"},
+{"id":"R5","plain":"A starting price sellers can say out loud","status":"No decision","state":"open","clears":"Ben names a spoken floor, or we stay quote-only","owner":"Ben"},
+{"id":"R6","plain":"Whether our attendance data is trustworthy (about 60% of prospects show a default of 200)","status":"Warning only","state":"partial","clears":"Read opportunity quality by church size from live Salesforce","owner":"Sales ops"},
+{"id":"R7","plain":"Named owners and dates for go / no-go decisions","status":"Not found","state":"open","clears":"Named owners with dated decisions","owner":"Ben / leadership"},
+{"id":"R8","plain":"An approved card for our processing fees","status":"Needs more information","state":"partial","clears":"Finance-approved fee card, or a written rule to never lead on fees","owner":"Finance / Ben"},
+{"id":"R9","plain":"Whether to count Planning Center's '78,000 churches' claim as a failed proof point","status":"Evidence ready, change held","state":"open","clears":"Ben says go","owner":"Ben"}]}
