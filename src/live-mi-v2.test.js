@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sayCheck } from './say.js';
 import { LIMITS } from '../server/app.js';
-import { V2_NAV, attackBrief, buyersHtml, comparesHtml, hideNamedChrome, isAdminEmail, plan2027Html } from './v2.js';
+import { V2_NAV, attackBrief, buyersHtml, comparesHtml, evidenceHtml, hideNamedChrome, implementationHtml, isAdminEmail, plan2027Html, showHero, visibleSection } from './v2.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => JSON.parse(readFileSync(path.join(root, file), 'utf8'));
@@ -48,6 +48,10 @@ test('SP01 through SP12 are wired and SP13 is absent', () => {
   assert.match(html, /What buyers see and say/);
   assert.match(html, /Followers are not reach/);
   assert.equal(/social proof/i.test(html), false);
+  for (const id of ['SP01', 'SP02', 'SP03', 'SP04', 'SP05', 'SP06', 'SP07', 'SP08', 'SP09', 'SP10', 'SP11', 'SP12']) {
+    assert.match(html, new RegExp(`${id} KEEP`));
+  }
+  assert.match(html, /SP13<\/b> Dropped/);
 });
 
 test('theater figures are not facts and buyer values are counts of 71', () => {
@@ -75,10 +79,52 @@ test('Amplify compares use COMP5 and badge the unknown modules', () => {
   for (const file of files) assert.match(file, /\.png$/);
   assert.equal(compares.modules.find((mod) => mod.id === 'check-in').unknown, true);
   assert.equal(compares.modules.find((mod) => mod.id === 'events').unknown, true);
-  const html = comparesHtml(compares);
+  const html = comparesHtml(compares, read('public/data/evidence-decisions.json'));
   assert.match(html, /Explicit Unknown/);
   assert.match(html, /comp-2026-11-04\/mb_amplify\.png/);
+  assert.match(html, /class="sxs"/);
+  assert.match(html, /Steal|Counter|Refuse/);
+  const captions = [...html.matchAll(/<figcaption>([\s\S]*?)<\/figcaption>/g)].map((match) => match[1]);
+  assert.ok(captions.length > 0);
+  assert.ok(captions.every((caption) => !caption.includes('.png')));
   assert.equal(html.includes('/amplify-modules/'), false);
+});
+
+test('read order stays on the V2 nav and council is not a front-end step', () => {
+  const start = read('public/data/pack.json').sections.find((section) => section.id === 'start').html;
+  assert.equal(start.includes('data-go="council"'), false);
+  assert.equal(start.includes('data-go="plain"'), false);
+  assert.equal(start.includes('data-go="win"'), false);
+  assert.equal(start.includes('data-go="resid"'), false);
+  assert.match(start, /data-go="implement"/);
+  assert.match(start, /Review scores are not in this workspace/);
+  assert.equal(visibleSection('council', false), 'start');
+  assert.equal(visibleSection('council', true), 'council');
+  assert.equal(visibleSection('plain', false), 'bets');
+  assert.equal(visibleSection('evidence', false), 'evidence');
+  assert.equal(showHero('commercial', 'start'), true);
+  assert.equal(showHero('commercial', 'buyers'), false);
+  assert.equal(showHero('2027', 'start'), false);
+  const main = readFileSync(path.join(root, 'src/main.js'), 'utf8');
+  assert.equal(/getElementById\('rail-back'\)[\s\S]{0,120}history\.back/.test(main), false);
+  assert.equal(main.includes("if (state.plan === '2027') state.section = 'start'"), false);
+});
+
+test('implementation composes this week from live data and evidence thumbs can open', () => {
+  const html = implementationHtml(
+    read('public/data/residuals.json'),
+    read('public/social/buyers-see-say.json'),
+    read('public/data/amplify-compares.json'),
+  );
+  assert.match(html, /Back to Overview/);
+  assert.match(html, /data-go="start"/);
+  assert.match(html, /Independent proof that today/);
+  assert.match(html, /Followers are not reach/);
+  assert.match(html, /Check-in/);
+  assert.equal(html.includes('Say J1 and J2'), false);
+  const shots = evidenceHtml(read('public/data/evidence-decisions.json'));
+  assert.match(shots, /data-item="ev-/);
+  assert.equal((shots.match(/class="gitem"/g) || []).length, 35);
 });
 
 test('council is admin-only and off the front-end nav', () => {
@@ -108,6 +154,9 @@ test('say-checker refuses theater and allows a dated follower count', () => {
   assert.equal(sayCheck('Can I say 78,000 churches?').status, 'refused');
   assert.equal(sayCheck('We serve 90,000 churches').status, 'refused');
   assert.equal(sayCheck('Amplify is easy for the office').status, 'explicit_unknown');
+  const easier = sayCheck('Easier than PCO?');
+  assert.equal(easier.status, 'explicit_unknown');
+  assert.match(easier.answer, /not an Amplify win/);
   assert.equal(sayCheck('Can I say a real person answers?').status, 'answered');
   assert.match(sayCheck('LinkedIn followers were 15,298').answer, /15,298/);
   assert.match(sayCheck('Stevie award').answer, /Pushpay claim/);

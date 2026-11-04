@@ -58,11 +58,29 @@ export function sayCheck(question) {
       return { matched: true, status: rule.status, answer: rule.answer, owner: rule.owner, confidence: 'high' };
     }
   }
+  if (/(easier|ease|easy|support)/i.test(text) && /(pco|planning center)/i.test(text)) {
+    return {
+      matched: true,
+      status: 'explicit_unknown',
+      answer: 'Unknown. Ease or support versus Planning Center is not an Amplify win. Public reviews n=0 (R3). Buyer language is discovery only.',
+      owner: 'R3',
+      confidence: 'high',
+    };
+  }
   if (/amplify/i.test(text) && /(easy|ease|support|real person)/i.test(text)) {
     return {
       matched: true,
       status: 'explicit_unknown',
       answer: 'Current Amplify ease and support are Explicit Unknown. Public reviews n=0 (R3). Buyer language from the 71 reviews is discovery only, not Amplify proof.',
+      owner: 'R3',
+      confidence: 'high',
+    };
+  }
+  if (/\b(easier|easiest)\b/i.test(text) || /ease of use/i.test(text)) {
+    return {
+      matched: true,
+      status: 'explicit_unknown',
+      answer: 'Unknown. Ease is not an Amplify win while public reviews are n=0 (R3). Buyer language is discovery only.',
       owner: 'R3',
       confidence: 'high',
     };

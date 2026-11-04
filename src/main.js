@@ -1,7 +1,7 @@
 import Chart from 'chart.js/auto';
 import { SEARCH_DEBOUNCE_MS, debounce, indexFromPack, searchPack } from './search.js';
 import { sayCheck } from './say.js';
-import { councilLockedHtml, installV2, isAdminEmail, refreshV2 } from './v2.js';
+import { installV2, isAdminEmail, opensDetail, refreshV2, visibleSection } from './v2.js';
 
 const TYPE = {
   kpi: 'KPI',
@@ -235,26 +235,19 @@ function renderSections() {
 }
 
 function showSection() {
+  state.section = visibleSection(state.section, state.admin);
   const known = new Set([...pack.sections.map((section) => section.id), ...EXTRA_SECTIONS]);
-  if (state.plan === '2027') state.section = 'start';
   if (!known.has(state.section)) state.section = 'start';
   const lock = document.getElementById('councilLock');
-  if (state.section === 'council' && !state.admin) {
-    if (lock) {
-      lock.hidden = false;
-      lock.innerHTML = councilLockedHtml();
-    }
-    document.querySelectorAll('section.tab').forEach((section) => { section.hidden = true; });
-  } else if (lock) lock.hidden = true;
+  if (lock) lock.hidden = true;
   document.querySelectorAll('section.tab').forEach((section) => {
     if (section.id === 'councilLock') return;
-    if (state.section === 'council' && !state.admin) {
+    if (section.dataset.folded === '1') {
       section.hidden = true;
       return;
     }
     section.hidden = section.dataset.screen !== state.section;
   });
-  if (state.section === 'council' && !state.admin && lock) lock.hidden = false;
   if (state.section === 'council' && state.admin) loadCouncil();
   document.querySelectorAll('#nav [data-section]').forEach((button) => {
     const same = button.dataset.section === state.section && !button.dataset.anchor;
@@ -378,10 +371,12 @@ function closePalette() {
 }
 
 function go(next, mode) {
+  const requested = next.section;
   if (next.plan) state.plan = next.plan;
   if (next.path) state.path = next.path;
   if (next.section) state.section = next.section;
   if ('item' in next) state.item = next.item;
+  state.section = visibleSection(state.section, state.admin);
   if (state.item && state.path !== 'all') {
     const item = byId.get(state.item);
     if (item && !item.paths.includes(state.path)) state.item = '';
@@ -395,6 +390,9 @@ function go(next, mode) {
   else closeRail();
   syncV2();
   writeUrl(mode);
+  if (requested && opensDetail(requested)) {
+    document.querySelector(`#t-${state.section} details.detailfold`)?.setAttribute('open', '');
+  }
   if (next.anchor) document.getElementById(next.anchor)?.scrollIntoView({ block: 'start' });
 }
 
@@ -575,7 +573,8 @@ async function ask(question, host) {
     const block = document.createElement('div');
     block.className = data.status === 'answered' ? 'a' : 'a unknown';
     const cites = (data.citations || []).filter((cite) => cite.itemId && byId.has(cite.itemId)).map((cite, index) => `<button type="button" data-item="${esc(cite.itemId)}">${index + 1}. ${esc(cite.label || cite.id)}</button>`).join(' ');
-    block.innerHTML = `<p>${esc(data.answer || data.unknownReason || 'The plan does not say.')}</p><p class="note">${esc(data.status === 'explicit_unknown' ? 'Explicit Unknown' : data.status === 'refused' ? 'Not a launch clearance' : 'From the plan')}</p><div class="raillinks">${cites}</div>`;
+    const verdict = data.status === 'answered' ? 'Allowed' : data.status === 'refused' ? 'Refused' : 'Unknown';
+    block.innerHTML = `<p>${esc(data.answer || data.unknownReason || 'The plan does not say.')}</p><p class="note">${esc(verdict)}</p><div class="raillinks">${cites}</div>`;
     out.insertBefore(block, out.children[1] || null);
   } catch {
     if (form) {
@@ -670,7 +669,7 @@ document.getElementById('signout').addEventListener('click', async () => {
   location.href = '/login';
 });
 document.getElementById('rail-close').addEventListener('click', () => go({ item: '' }, 'replace'));
-document.getElementById('rail-back').addEventListener('click', () => history.back());
+document.getElementById('rail-back').addEventListener('click', () => go({ item: '' }, 'replace'));
 document.getElementById('rail-crumb').addEventListener('click', () => go({ item: '' }, 'push'));
 document.addEventListener('click', (event) => {
   const planButton = event.target.closest('.planswitch [data-plan]');
@@ -680,8 +679,12 @@ document.addEventListener('click', (event) => {
   const askPrompt = event.target.closest('[data-ask]');
   const rival = event.target.closest('#rivalFil button');
   const kind = event.target.closest('#kindFil button');
-  const shot = event.target.closest('#evidence .gitem, #evGrid .gitem');
+  const shot = event.target.closest('#evGrid .gitem, #evidence .gitem, .comparecard .gitem');
   const jump = event.target.closest('[data-go]');
+  if (shot && event.target.closest('img, figcaption')) {
+    openShot(shot);
+    return;
+  }
   if (planButton) { go({ plan: planButton.dataset.plan, item: '' }, 'push'); return; }
   if (path) { go({ path: path.dataset.path, item: '' }, 'push'); return; }
   if (section) { go({ section: section.dataset.section, item: '', anchor: section.dataset.anchor }, 'push'); return; }
@@ -702,10 +705,6 @@ document.addEventListener('click', (event) => {
   }
   if (askPrompt) { ask(askPrompt.dataset.ask); return; }
   if (item?.dataset.item && !event.target.closest('#palette')) {
-    if (shot && event.target.closest('img, figcaption')) {
-      openShot(shot);
-      return;
-    }
     const drill = event.target.closest('button.kpi, .drill, .raillinks button, .cellbtn');
     if (!drill) return;
     go({ item: item.dataset.item }, 'push');
@@ -723,7 +722,7 @@ document.getElementById('stage').addEventListener('submit', (event) => {
 window.addEventListener('popstate', () => {
   const next = readUrl();
   state.path = next.path;
-  state.section = next.section;
+  state.section = visibleSection(next.section, state.admin);
   state.item = next.item;
   state.plan = next.plan;
   if (!built) return;

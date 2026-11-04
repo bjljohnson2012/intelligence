@@ -14,6 +14,35 @@ export const V2_NAV = [
 
 const EXTRA_SECTIONS = ['evidence', 'implement'];
 
+const LEGACY_HOME = {
+  plain: 'bets',
+  win: 'bets',
+  resid: 'bets',
+  tam: 'bets',
+  self: 'icp',
+  ask: 'start',
+};
+
+const FOLD = {
+  bets: ['plain', 'win', 'resid', 'tam'],
+  comp: [],
+  icp: ['self'],
+};
+
+export function visibleSection(section, admin) {
+  if (section === 'council') return admin ? 'council' : 'start';
+  if (V2_NAV.some((item) => item.id === section)) return section;
+  return LEGACY_HOME[section] || 'start';
+}
+
+export function opensDetail(section) {
+  return Boolean(LEGACY_HOME[section]);
+}
+
+export function showHero(plan, section) {
+  return plan !== '2027' && section === 'start';
+}
+
 export function isAdminEmail(email) {
   return String(email || '').toLowerCase() === ADMIN_EMAIL;
 }
@@ -49,14 +78,41 @@ export function buyersHtml(social) {
   const quotes = social.quotes.map((quote) => `<blockquote class="q"><p>${esc(quote.text)}</p><p class="note">${esc(quote.id)} · ${esc(quote.where)}</p></blockquote>`).join('');
   const shots = social.also.filter((row) => row.file).map((row) => `<figure class="shot"><img src="/evidence/comp-2026-11-04/${esc(row.file)}" alt="${esc(row.decision)}"><figcaption><b>${esc(row.decision)}</b><span class="note">${esc(row.id)} · marketing page</span></figcaption></figure>`).join('');
   const views = social.posts.views.map((view) => `<div class="mini"><b>${esc(view)}</b><span class="note">views</span></div>`).join('');
-  return `<h2>${esc(social.heading)}</h2><p class="lead">${esc(social.note)}</p><p class="note">Read ${esc(social.read)}. Confidence on X is High. LinkedIn is Medium. ${esc(social.source)}</p><div class="panel"><h3>Reach</h3><div class="tw"><table><thead><tr>${head.map((cell) => `<th>${esc(cell)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div><div class="panel"><h3>AI posts</h3><p class="note">${esc(social.posts.id)} · ${esc(social.posts.date)} · ${esc(social.posts.method)}</p><div class="minis">${views}</div><p>${esc(social.posts.decision)}</p></div><div class="panel"><h3>What buyers said</h3><div class="quotegrid">${quotes}</div><p class="note">Also on the read: SP05 peer migration tool (Low). SP09 Church-IT Amplify price read (Low).</p></div><div class="panel"><h3>What the screens decide</h3><div class="shots">${shots}</div></div>`;
+  const keep = [
+    ...social.reach.map((row) => `<li><b>${esc(row.id)} ${row.counts ? 'KEEP' : 'not read'}</b> ${esc(row.platform)}. ${row.counts ? 'Followers are not reach.' : esc(row.note || '')}</li>`),
+    `<li><b>${esc(social.posts.id)} KEEP</b> ${esc(social.posts.decision)}</li>`,
+    ...social.quotes.map((quote) => `<li><b>${esc(quote.id)} KEEP</b> ${esc(quote.where)}</li>`),
+    ...social.also.map((row) => `<li><b>${esc(row.id)} KEEP</b> ${esc(row.decision || row.text)}</li>`),
+    '<li><b>SP13</b> Dropped. Not in this read.</li>',
+  ].join('');
+  return `<h2>${esc(social.heading)}</h2><p class="lead">${esc(social.note)}</p><div class="panel"><h3>KEEP path</h3><ul class="spkeep">${keep}</ul></div><p class="note">Read ${esc(social.read)}. Confidence on X is High. LinkedIn is Medium. ${esc(social.source)}</p><div class="panel"><h3>Reach</h3><div class="tw"><table><thead><tr>${head.map((cell) => `<th>${esc(cell)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div><div class="panel"><h3>AI posts</h3><p class="note">${esc(social.posts.id)} · ${esc(social.posts.date)} · ${esc(social.posts.method)}</p><div class="minis">${views}</div><p>${esc(social.posts.decision)}</p></div><div class="panel"><h3>What buyers said</h3><div class="quotegrid">${quotes}</div><p class="note">Also on the read: SP05 peer migration tool (Low). SP09 Church-IT Amplify price read (Low).</p></div><div class="panel"><h3>What the screens decide</h3><div class="shots">${shots}</div></div>`;
 }
 
-export function comparesHtml(compares) {
+function moveLabel(move, unknown) {
+  if (unknown || move === 'unknown') return 'Explicit Unknown';
+  if (move === 'steal') return 'Steal';
+  if (move === 'counter') return 'Counter';
+  if (move === 'refuse') return 'Refuse';
+  return 'Explicit Unknown';
+}
+
+function shotCard(file, mod, catalog) {
+  const found = (catalog?.items || []).find((item) => item.file === file);
+  const title = found?.title || mod.name;
+  const decision = found?.decision || mod.decision;
+  const id = `cmp-${String(file).replace(/\.png$/i, '').replace(/[^a-z0-9]+/gi, '-')}`;
+  return `<figure class="shot gitem" data-item="${esc(id)}" data-caption="${esc(title)}. ${esc(decision)}" data-meta="Marketing page · ${esc(found?.captured || '2026-11-04')}"><img src="/evidence/comp-2026-11-04/${esc(file)}" alt="${esc(decision)}"><figcaption><b>${esc(title)}</b><span class="note">${esc(moveLabel(mod.move, mod.unknown))}</span></figcaption></figure>`;
+}
+
+export function comparesHtml(compares, catalog) {
   const cards = compares.modules.map((mod) => {
-    const shots = [...mod.amplify, ...mod.rivals].map((file) => `<figure class="shot"><img src="/evidence/comp-2026-11-04/${esc(file)}" alt="${esc(mod.decision)}"><figcaption class="note">${esc(file)} · marketing page</figcaption></figure>`).join('');
-    const badge = mod.unknown ? chip('Explicit Unknown', 'unk') : chip(mod.move);
-    return `<article class="panel comparecard"><h3>${esc(mod.name)} ${badge}</h3><p>${esc(mod.decision)}</p>${shots ? `<div class="shots">${shots}</div>` : '<p class="note">No COMP5 product shot. Do not imply parity.</p>'}</article>`;
+    const left = mod.amplify.map((file) => shotCard(file, mod, catalog)).join('');
+    const right = mod.rivals.map((file) => shotCard(file, mod, catalog)).join('');
+    const badge = chip(moveLabel(mod.move, mod.unknown), mod.unknown ? 'unk' : '');
+    const pair = (left || right)
+      ? `<div class="sxs"><div><p class="note">Amplify</p>${left || '<p class="note">No Amplify marketing page for this module.</p>'}</div><div><p class="note">Rival</p>${right || '<p class="note">No rival page in this compare.</p>'}</div></div>`
+      : '<p class="note">No COMP5 product shot. Do not imply parity.</p>';
+    return `<article class="panel comparecard"><h3>${esc(mod.name)} ${badge}</h3><p>${esc(mod.decision)}</p>${pair}</article>`;
   }).join('');
   return `<div class="panel"><h2>Amplify module compares</h2><p>${esc(compares.proof)}</p><p class="note">${esc(compares.source)}</p></div>${cards}`;
 }
@@ -72,7 +128,10 @@ export function icpHtml(icp, path) {
 }
 
 export function evidenceHtml(catalog) {
-  const shots = catalog.items.map((item) => `<figure class="gitem" data-rival="${esc(item.rival)}" data-kind="${esc(item.kind)}" data-caption="${esc(item.title)}. ${esc(item.decision)}" data-meta="Captured ${esc(item.captured)} · ${esc(item.file)}"><img src="${esc(item.src)}" alt="${esc(item.decision)}" loading="lazy"><figcaption><b>${esc(item.title)}</b><span class="note">${esc(item.decision)}</span></figcaption></figure>`).join('');
+  const shots = catalog.items.map((item) => {
+    const id = `ev-${String(item.file).replace(/\.png$/i, '').replace(/[^a-z0-9]+/gi, '-')}`;
+    return `<figure class="gitem" data-item="${esc(id)}" data-rival="${esc(item.rival)}" data-kind="${esc(item.kind)}" data-caption="${esc(item.title)}. ${esc(item.decision)}" data-meta="Captured ${esc(item.captured)} · ${esc(item.file)}"><img src="${esc(item.src)}" alt="${esc(item.decision)}" loading="lazy"><figcaption><b>${esc(item.title)}</b><span class="note">${esc(item.decision)}</span></figcaption></figure>`;
+  }).join('');
   return `<h2>Evidence</h2><p class="lead">Each capture names the decision. These are marketing pages, not a logged-in church admin.</p><div class="tfil" id="evRival"><button type="button" data-ev="all" aria-pressed="true">All</button><button type="button" data-ev="pco">Planning Center</button><button type="button" data-ev="pushpay">Pushpay</button><button type="button" data-ev="tithely">Tithely / Breeze</button><button type="button" data-ev="subsplash">Subsplash</button><button type="button" data-ev="acs">ACS / Realm</button><button type="button" data-ev="mb">Ministry Brands</button></div><div class="tfil" id="evKind"><button type="button" data-evkind="all" aria-pressed="true">All kinds</button><button type="button" data-evkind="home">Home</button><button type="button" data-evkind="pricing">Pricing</button><button type="button" data-evkind="marketing">Marketing page</button><button type="button" data-evkind="channel">Channel, not proof</button><button type="button" data-evkind="cta">Call to action</button></div><div class="ggrid" id="evGrid">${shots}</div><p class="note"><button type="button" class="go2" id="openReceipts">Raw receipts</button></p><div id="receipts" hidden></div>`;
 }
 
@@ -86,19 +145,34 @@ export function receiptsHtml(items) {
 
 export function planUtilityHtml(residuals) {
   const open = residuals.items.map((item) => `<li><b>${esc(item.id)}</b> ${esc(item.plain)} ${chip(item.status, item.state === 'fail' ? 'bad' : 'unk')}</li>`).join('');
-  return `<h2>Plan</h2><p class="lead">One job: the next move. Live Core stays HOLD.</p><div class="grid3"><div class="panel"><h3>Outcomes</h3><ul><li>Safe Switch cockpit (R1, not built)</li><li>Gift-to-books demo (R2, not confirmed)</li><li>One customer count, still a conflict</li></ul></div><div class="panel"><h3>Plays</h3><ul><li>Discover ease, then a real person</li><li>Then one place</li><li>Then books, after R2</li><li>Fees last</li></ul></div><div class="panel"><h3>Still open</h3><ul>${open}</ul></div></div>`;
+  return `<h2>Plan</h2><p class="lead">One job: the next move. Live Core stays HOLD.</p><p class="note">GTM V2.1: Incumbent deep-dive · Social proof · Dual-plan · Attack planner · Allowed / Refused / Unknown · Residual gate · Raw receipts · ICP buyer map · Implementation lane.</p><div class="grid3"><div class="panel"><h3>Outcomes</h3><ul><li>Safe Switch cockpit (R1, not built)</li><li>Gift-to-books demo (R2, not confirmed)</li><li>One customer count, still a conflict</li></ul></div><div class="panel"><h3>Plays</h3><ul><li>Discover ease, then a real person</li><li>Then one place</li><li>Then books, after R2</li><li>Fees last</li></ul></div><div class="panel"><h3>Still open</h3><ul>${open}</ul></div></div>`;
 }
 
 export function holdHtml(residuals) {
   const blocking = residuals.items.filter((item) => item.state !== 'pass');
   const lines = blocking.map((item) => `<li><b>${esc(item.id)} · ${esc(item.status)}</b> — ${esc(item.plain)} Clears when: ${esc(item.clears)} Owner: ${esc(item.owner)}</li>`).join('');
-  return `<div class="panel holdgate"><h3>Use in market</h3><p>${chip('HOLD', 'bad')} Live Core stays HOLD. ${blocking.length} open items block a green light.</p><ul>${lines}</ul><button type="button" class="go2" disabled>Export talk track</button></div>`;
+  return `<div class="panel holdgate"><h3>HOLD residuals</h3><p>${chip('HOLD', 'bad')} Live Core stays HOLD. ${blocking.length} open items block a green light.</p><ul>${lines}</ul><button type="button" class="go2" disabled>Export talk track</button></div>`;
 }
 
-export function implementationHtml(residuals) {
+export function implementationHtml(residuals, social, compares) {
   const blocked = residuals.items.filter((item) => item.state === 'fail' || item.state === 'unknown' || item.state === 'open' || item.state === 'partial');
   const rows = blocked.map((item) => `<tr><td>HOLD</td><td>${esc(item.id)}</td><td>${esc(item.plain)}</td><td>${esc(item.owner)}</td></tr>`).join('');
-  return `<h2>Implementation</h2><p class="lead">What we execute. Not another research dump.</p><div class="panel"><h3>This week</h3><ul><li>Say J1 and J2 as discovery. Do not say Amplify ease while public reviews are n=0.</li><li>Show the buyers table. Followers are not reach. Facebook and Instagram stay unread.</li><li>Use the COMP5 compares. Check-in and standalone events stay Explicit Unknown.</li><li>Keep the customer-count conflict. Do not pick a number.</li></ul></div><div class="panel"><h3>HOLD until cleared</h3><div class="tw"><table><thead><tr><th></th><th>Item</th><th>Gap</th><th>Owner</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  const lines = [];
+  const byResidual = Object.fromEntries(residuals.items.map((item) => [item.id, item]));
+  if (byResidual.R3) lines.push(`${byResidual.R3.id}: ${byResidual.R3.plain} ${byResidual.R3.status}.`);
+  if (social?.note) lines.push(social.note);
+  const keepIds = [
+    ...(social?.reach || []).map((row) => row.id),
+    social?.posts?.id,
+    ...(social?.quotes || []).map((row) => row.id),
+    ...(social?.also || []).map((row) => row.id),
+  ].filter(Boolean);
+  if (keepIds.length) lines.push(`KEEP ${keepIds.join(', ')}. SP13 is dropped.`);
+  const unknown = (compares?.modules || []).filter((mod) => mod.unknown).map((mod) => mod.name);
+  if (unknown.length) lines.push(`COMP5 Explicit Unknown: ${unknown.join(', ')}.`);
+  if (byResidual.R9) lines.push(`${byResidual.R9.id}: ${byResidual.R9.plain}`);
+  const week = lines.map((line) => `<li>${esc(line)}</li>`).join('');
+  return `<h2>Implementation</h2><p class="lead">What we execute. Not another research dump.</p><p><button type="button" class="go" data-go="start">Back to Overview</button></p><div class="panel"><h3>This week</h3><ul>${week}</ul></div><div class="panel"><h3>HOLD until cleared</h3><div class="tw"><table><thead><tr><th></th><th>Item</th><th>Gap</th><th>Owner</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 export function attackHtml(rivals) {
@@ -199,7 +273,7 @@ export function installV2(next) {
     const sheet = document.createElement('div');
     sheet.id = 'askSheet';
     sheet.hidden = true;
-    sheet.innerHTML = `<div class="asksheet"><div class="railhead"><h2>Ask the plan</h2><button type="button" class="x" id="askSheetClose">Close</button></div><p class="note">Path and plan aware. Explicit Unknown when the pack does not say. This does not clear an open item.</p><form id="sayForm" class="stack"><label>Can I say this? <input id="sayIn" type="text" placeholder="A line you might say to a church"></label><button type="submit">Check</button></form><div id="sayOut"></div><form id="askSheetForm" class="stack"><label>Ask <textarea id="askSheetIn" rows="3" placeholder="Ask about this plan"></textarea></label><button type="submit">Ask</button></form><div id="askSheetOut"></div></div>`;
+    sheet.innerHTML = `<div class="asksheet"><div class="railhead"><h2>Ask the plan</h2><button type="button" class="x" id="askSheetClose">Close</button></div><p class="note">Allowed, Refused, or Unknown. Explicit Unknown when the pack does not say. This does not clear an open item.</p><form id="sayForm" class="stack"><label>Can I say this? <input id="sayIn" type="text" placeholder="A line you might say to a church"></label><button type="submit">Check</button></form><div id="sayOut"></div><form id="askSheetForm" class="stack"><label>Ask <textarea id="askSheetIn" rows="3" placeholder="Ask about this plan"></textarea></label><button type="submit">Ask</button></form><div id="askSheetOut"></div></div>`;
     document.body.append(fab, sheet);
     fab.addEventListener('click', () => { sheet.hidden = !sheet.hidden; });
     sheet.querySelector('#askSheetClose').addEventListener('click', () => { sheet.hidden = true; });
@@ -207,7 +281,8 @@ export function installV2(next) {
       event.preventDefault();
       const verdict = next.sayCheck(sheet.querySelector('#sayIn').value);
       const out = sheet.querySelector('#sayOut');
-      out.innerHTML = verdict.matched ? `<p>${chip(verdict.status)} ${esc(verdict.answer)}</p>` : '<p class="note">Type a line to check.</p>';
+      const label = verdict.status === 'answered' ? 'Allowed' : verdict.status === 'refused' ? 'Refused' : 'Unknown';
+      out.innerHTML = verdict.matched ? `<p>${chip(label)} ${esc(verdict.answer)}</p>` : '<p class="note">Type a line to check.</p>';
     });
     sheet.querySelector('#askSheetForm').addEventListener('submit', (event) => {
       event.preventDefault();
@@ -248,7 +323,40 @@ export function installV2(next) {
     if (!button) return;
     document.querySelector(`#yNav [data-pane="${button.dataset.pane}"]`)?.click();
   });
+  foldLegacy();
   refreshV2();
+}
+
+export function foldLegacy() {
+  Object.entries(FOLD).forEach(([parentId, extra]) => {
+    const parent = document.getElementById(`t-${parentId}`);
+    if (!parent || parent.querySelector(':scope > details.detailfold')) return;
+    const dump = document.createElement('div');
+    dump.className = 'legacydump';
+    [...parent.children].forEach((child) => {
+      if (child.id === 'v2plan' || child.id === 'v2comp' || child.id === 'v2icp') return;
+      dump.append(child);
+    });
+    extra.forEach((id) => {
+      const section = document.getElementById(`t-${id}`);
+      if (!section) return;
+      const block = document.createElement('div');
+      block.dataset.foldedFrom = id;
+      while (section.firstChild) block.append(section.firstChild);
+      dump.append(block);
+      section.hidden = true;
+      section.dataset.folded = '1';
+    });
+    const details = document.createElement('details');
+    details.className = 'detailfold';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Detail';
+    details.append(summary, dump);
+    parent.append(details);
+    details.addEventListener('toggle', () => {
+      if (details.open) window.dispatchEvent(new Event('resize'));
+    });
+  });
 }
 
 function onStageClick(event) {
@@ -318,9 +426,9 @@ export function refreshV2() {
   if (paintedKey !== key) {
     fill('buyersMount', buyersHtml(social));
     fill('evidenceMount', evidenceHtml(ctx.evidence));
-    fill('implementMount', `${implementationHtml(residuals)}${attackHtml(rivals)}`);
+    fill('implementMount', `${implementationHtml(residuals, social, compares)}${attackHtml(rivals)}`);
     fill('v2plan', `${planUtilityHtml(residuals)}${holdHtml(residuals)}`);
-    fill('v2comp', `${rivalCardsHtml(rivals)}${comparesHtml(compares)}`);
+    fill('v2comp', `${rivalCardsHtml(rivals)}${comparesHtml(compares, ctx.evidence)}`);
     fill('v2icp', icpHtml(icp, path));
     paintedKey = key;
   }
@@ -328,7 +436,7 @@ export function refreshV2() {
   document.body.dataset.admin = admin ? '1' : '0';
   const commercial = plan !== '2027';
   document.getElementById('y2027').hidden = commercial;
-  document.getElementById('hero').hidden = !commercial;
+  document.getElementById('hero').hidden = !showHero(plan, ctx.section);
   document.getElementById('sections').hidden = !commercial;
   document.querySelectorAll('.pathswitch').forEach((node) => { node.hidden = !commercial; });
   document.querySelectorAll('.planswitch button').forEach((button) => {
