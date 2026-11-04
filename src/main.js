@@ -1,4 +1,5 @@
 import Chart from 'chart.js/auto';
+import { buildPlanIndex, presentHits } from './search.js';
 
 const screens = {
   start: ['t-start'],
@@ -72,53 +73,56 @@ function setPath(path) {
   paintPath();
 }
 
-function sectionItems() {
-  return [
-    ['Start here', 'start'],
-    ['In plain terms', 'plain'],
-    ['Where we win', 'win'],
-    ['Market', 'tam'],
-    ['ICP', 'icp'],
-    ['Competitors', 'comp'],
-    ['Screenshot gallery', 'comp', 'evidence'],
-    ['MB self', 'self'],
-    ['Value', 'value', 'ex17'],
-    ['Residuals', 'resid'],
-    ['Council', 'council'],
-    ['Plan', 'bets'],
-    ['Thing to plan for', 'bets'],
-    ['Thing to think about', 'bets'],
-    ['Ask the plan', 'ask'],
-  ].map(([label, go, anchor]) => ({ group: 'Sections', label, go, anchor: anchor || '', text: label }));
-}
+const SECTION_GO = {
+  't-start': 'start',
+  't-plain': 'plain',
+  't-win': 'win',
+  't-tam': 'tam',
+  't-icp': 'icp',
+  't-comp': 'comp',
+  't-self': 'self',
+  't-resid': 'resid',
+  't-council': 'council',
+  't-bets': 'bets',
+  't-ask': 'ask',
+};
 
-function planItems() {
-  return ['V1 Safe migration', 'V2 Trust during the switch', 'V3 One money truth', 'V4 No death-march rip', 'V5 Fund accounting', 'V6 Honest total cost'].map((label) => ({
-    group: 'Plan', label, go: 'bets', anchor: '', text: label,
+function domRecords() {
+  const headings = [...document.querySelectorAll('[data-pal-label]')].map((el) => {
+    const section = el.closest('section.tab');
+    return {
+      label: el.getAttribute('data-pal-label') || '',
+      go: SECTION_GO[section?.id] || 'start',
+      anchor: el.closest('#evidence') ? 'evidence' : '',
+      text: (el.textContent || '').trim(),
+    };
+  });
+  const evidence = [...document.querySelectorAll('#evidence .gitem, .shot')].map((el) => ({
+    label: el.dataset.caption || el.querySelector('figcaption')?.textContent || el.querySelector('img')?.alt || '',
+    rival: el.dataset.rival || '',
+    text: `${el.dataset.caption || ''} ${el.dataset.meta || ''} ${el.querySelector('img')?.alt || ''}`,
   }));
+  return { headings, evidence };
 }
 
 async function loadSearch() {
-  palItems = [...sectionItems(), ...planItems()];
+  let residuals = [];
+  let rivals = [];
   try {
-    const [residuals, rivals] = await Promise.all([
+    const [resData, rivalData] = await Promise.all([
       fetch('/data/residuals.json').then((r) => r.json()),
       fetch('/data/competitors.json').then((r) => r.json()),
     ]);
-    palItems.push(...residuals.items.map((item) => ({
-      group: 'Residuals', label: item.plain, badge: item.id, go: 'resid', anchor: '', text: `${item.id} ${item.plain} ${item.status}`,
-    })));
-    palItems.push(...rivals.rivals.map((rival) => ({
-      group: 'Competitors', label: rival.name, go: 'comp', anchor: 'evidence', text: `${rival.name} ${rival.promise}`,
-    })));
-  } catch { /* sections still search */ }
+    residuals = resData.items || [];
+    rivals = rivalData.rivals || [];
+  } catch { /* canonical index still searches */ }
   try { glossary = await fetch('/data/glossary.json').then((r) => r.json()); } catch { glossary = {}; }
+  const dom = domRecords();
+  palItems = buildPlanIndex({ headings: dom.headings, evidence: dom.evidence, residuals, rivals });
 }
 
 function filteredPalette(query) {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length) return palItems.slice(0, 12);
-  return palItems.filter((item) => words.every((word) => (`${item.label} ${item.text} ${item.badge || ''}`).toLowerCase().includes(word))).slice(0, 20);
+  return presentHits(palItems, query, query ? 20 : 16);
 }
 
 function renderPalette() {
@@ -135,7 +139,7 @@ function renderPalette() {
     const head = hit.group !== group ? `<div class="palgroup">${esc(hit.group)}</div>` : '';
     group = hit.group;
     const badge = hit.badge ? `<span class="badge b-unk">${esc(hit.badge)}</span>` : '';
-    return `${head}<button type="button" class="palhit${index === palIndex ? ' on' : ''}" data-i="${index}"><span>${esc(hit.label)}</span>${badge}<span class="pg">${esc(hit.group)}</span></button>`;
+    return `${head}<button type="button" class="palhit${index === palIndex ? ' on' : ''}" data-i="${index}"><span>${esc(hit.label)}</span>${badge}</button>`;
   }).join('');
   listEl.querySelectorAll('.palhit').forEach((button) => {
     button.onclick = () => openHit(hits[Number(button.dataset.i)]);
@@ -153,6 +157,14 @@ function closePalette() {
 
 function openHit(hit) {
   closePalette();
+  if (hit.rival) {
+    const buttons = [...document.querySelectorAll('#rivalFil button')];
+    const match = buttons.find((button) => button.dataset.rival === hit.rival);
+    if (match) {
+      buttons.forEach((button) => button.setAttribute('aria-pressed', button === match ? 'true' : 'false'));
+      applyGallery();
+    }
+  }
   show(hit.go, hit.anchor);
 }
 
@@ -289,11 +301,7 @@ async function ask(question) {
       }
     }
   } catch { /* stub */ }
-  const words = question.toLowerCase().split(/\W+/).filter((word) => word.length > 3);
-  const hits = palItems.map((item) => ({
-    item,
-    score: words.filter((word) => (`${item.label} ${item.text}`).toLowerCase().includes(word)).length,
-  })).filter((hit) => hit.score).sort((a, b) => b.score - a.score).slice(0, 3);
+  const hits = presentHits(palItems, question, 3).map((item) => ({ item }));
   answer.innerHTML = hits.length
     ? `Answers from the plan are not switched on yet. Closest sections: ${hits.map((hit) => `<button type="button" data-go="${hit.item.go}">${esc(hit.item.label)}</button>`).join(' ')}`
     : 'Unknown. The research does not cover that yet.';

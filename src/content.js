@@ -26,6 +26,6 @@ export const paths = {
 export const searchIndex = [
  ...Object.entries(paths).flatMap(([k,p])=>Object.entries(p.tabs).map(([t,v])=>({id:k,label:`${p.title} · ${t}`,text:JSON.stringify(v)}))),
  {id:"rivals",label:"Competitor explorer",text:"Planning Center Pushpay Subsplash Realm ACS Tithely Breeze pricing promise"},
- {id:"open",label:"Open items",text:"residual unknown switching demo reviews price fees win loss owners"},
+ {id:"open",label:"Still open",text:"still open clarification unknown switching demo reviews price fees win loss owners"},
  {id:"values",label:"What churches value",text:"ease support price fair one place reports giving growth"},
  {id:"review",label:"Review scores",text:"council clarity flow score gate"}];
