@@ -1,20 +1,10 @@
-
 intelligence.benjohnson.ai {
-    encode gzip
-    header X-Robots-Tag "noindex, nofollow"
-    # GATED: app is NOT public. Until Cloudflare Access (email allowlist) fronts this host,
-    # serve only a private placeholder. To open after the gate is live, swap the final
-    # handle for:  root * /data/sites/intelligence ; try_files {path} /index.html ; file_server
-    # TODO(Product): /api/ask -> reverse_proxy 127.0.0.1:<node port> per 2026-11-04-ask-the-plan-product.md
-    handle /api/* {
-        header Content-Type application/json
-        respond `{"status":"refused","unknownReason":"Sign-in required"}` 401
-    }
-    handle {
-        header Content-Type "text/html; charset=utf-8"
-        respond `<!doctype html><meta name=viewport content="width=device-width"><title>Private</title><body style="font-family:system-ui;background:#0B2545;color:#B2E1F6;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center"><h1 style="color:#fff">2026 Market Plan</h1><p>Private. Sign-in is being set up.</p></div>` 403
-    }
-    log {
-        output file /data/intelligence.access.log
-    }
+	encode gzip
+	header X-Robots-Tag "noindex, nofollow"
+	# The Node app on 127.0.0.1:8787 serves the plan and the sign-in session.
+	# Do not serve files from Caddy. People who are not signed in never see the plan.
+	reverse_proxy 127.0.0.1:8787
+	log {
+		output file /data/intelligence.access.log
+	}
 }

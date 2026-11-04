@@ -8,5 +8,6 @@
 6. **Competitor explorer** — filter by size; tap a card for their promise, strength, why a church picks us, what not to do.
 7. **Open items** — donut by status plus nine plain-English items (R1–R9), each with what clears it and who owns it. Nothing presented as proven.
 8. **Review scores** — Clarity 9, Flow 8.5, pass; live mid-size selling on hold.
-9. **Ask the plan** — question box (sign-in required; AI off until backend lands).
+9. **Ask the plan** — question box. Answers stay off until the plan library is connected; a question points at the closest sections.
+Sign-in is a page before any of this. People who are not signed in never see the plan.
 Always available: top menu, search that jumps to any section. Works on phones; animations respect reduced-motion.

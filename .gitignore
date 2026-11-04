@@ -8,6 +8,7 @@ dist/
 .env
 .env.*
 !.env.example
+!deploy/.env.example
 secrets/
 *.pem
 *.key

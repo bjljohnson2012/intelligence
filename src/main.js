@@ -53,12 +53,16 @@ async function ask(q){
  askOut.prepend(el(`<div class="q">${q.replace(/</g,'&lt;')}</div>`));
  const a=el('<div class="a">Thinking…</div>'); askOut.insertBefore(a,askOut.children[1]||null);
  try{const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,pathHint:location.hash==='#large'?'enterprise':location.hash==='#mid'?'core':'either',sessionId:sid})});
-  if(r.status===401||r.status===403){a.innerHTML='Ask the plan is switched off until sign-in is set up. Closest sections:';}
+  if(r.status===401||r.status===403){a.innerHTML='Answers from the plan are not switched on yet. Closest sections:';}
   else if(r.ok){const d=await r.json(); if(d.answer){a.innerHTML=`${d.answer}<br><span class="muted">${(d.residualsNamed||[]).join(' · ')} ${d.status==='explicit_unknown'?'· Unknown in the research':''}</span>`;return;}}}catch(e){}
  const words=q.toLowerCase().split(/\W+/).filter(w=>w.length>3);
  const hits=searchIndex.map(x=>({x,s:words.filter(w=>(x.label+x.text).toLowerCase().includes(w)).length})).filter(h=>h.s).sort((a,b)=>b.s-a.s).slice(0,3);
- a.innerHTML=(a.innerHTML.startsWith('Ask')?a.innerHTML+' ':'')+(hits.length?`AI answers are not switched on yet. The closest plan sections are: ${hits.map(h=>`<a href="#${h.x.id}">${h.x.label}</a>`).join(', ')}.`:'Unknown — the research does not cover that yet.');
+ a.innerHTML=(a.innerHTML.includes('Closest sections')?a.innerHTML+' ':'')+(hits.length?`The closest plan sections are: ${hits.map(h=>`<a href="#${h.x.id}">${h.x.label}</a>`).join(', ')}.`:'Unknown — the research does not cover that yet.');
 }
+document.getElementById('signout')?.addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  location.href = '/login';
+});
 askForm.onsubmit=e=>{e.preventDefault(); if(askIn.value.trim()) ask(askIn.value.trim()); askIn.value='';};
 document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>ask(b.textContent));
 

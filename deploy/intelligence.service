@@ -1,0 +1,16 @@
+[Unit]
+Description=2026 Market Plan session server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/intelligence
+EnvironmentFile=/opt/intelligence/.env
+Environment=HOST=127.0.0.1
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
