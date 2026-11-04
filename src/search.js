@@ -14,7 +14,7 @@ const NAV = [
   ['Value', 'value', 'ex17', ['buyer values', 'what churches value']],
   ['Still open', 'resid', '', ['residuals', 'residual', 'residual register', 'open items', 'clarification', 'unproven', 'still open', 'items that still need clarification']],
   ['Council', 'council', '', ['scores', 'review']],
-  ['Plan', 'bets', '', ['plan bets']],
+  ['Plan', 'bets', '', ['plan bets', 'thing to plan', 'thing to plan for', 'thing to think about', 'plan for']],
   ['Ask the plan', 'ask', '', ['ask', 'question']],
 ];
 
@@ -173,6 +173,9 @@ function scoreItem(item, tokens) {
     if (tokens.length === 1 && item.fields.alias.raw.includes(query)) score += 50;
     else if (tokens.length === 1 && name && query.length >= 5 && Math.abs(name.length - query.length) <= 1 && levenshtein(name, query) <= 1) score += 50;
     else if (tokens.length > 1 && item.fields.alias.norm.includes(tokens.join(' '))) score += 46;
+  }
+  if (item.pathFact && tokens.length === 1 && (item.aliases || []).some((alias) => tokenize(alias).join(' ') === tokens[0])) {
+    score += 40;
   }
   if (item.group === 'Still open' && Array.isArray(item.aliases)) {
     const covered = item.aliases.some((alias) => {
@@ -357,13 +360,17 @@ export function indexFromPack(pack) {
       label: section.label,
       go: section.id,
       anchor: '',
-      aliases: section.id === 'resid' ? ['residuals', 'residual', 'still open', 'open items'] : [section.label],
+      aliases: section.id === 'resid'
+        ? ['residuals', 'residual', 'still open', 'open items']
+        : section.id === 'bets'
+          ? ['plan', 'plan bets', 'thing to plan', 'thing to plan for', 'thing to think about', 'plan for']
+          : [section.label],
       browse: true,
       paths: ['core', 'enterprise'],
       kind: 'section',
       itemId: `section-${section.id}`,
       text: `${section.label} ${section.id}`,
-      plain: section.label,
+      plain: section.id === 'bets' ? 'Thing to plan for. The Plan section.' : section.label,
     });
     if (section.id === 'comp') {
       addUnique(items, seen, {
@@ -393,6 +400,23 @@ export function indexFromPack(pack) {
     itemId: 'section-all',
     text: 'Altogether compares Core 250–999 and Enterprise 1,000+',
     plain: 'Altogether compares Core 250–999 and Enterprise 1,000+.',
+  });
+  PATHS.forEach(([label, go, aliases]) => {
+    const enterprise = aliases.includes('enterprise');
+    addUnique(items, seen, {
+      group: 'Sections',
+      label,
+      go,
+      anchor: '',
+      aliases,
+      browse: false,
+      paths: enterprise ? ['enterprise'] : ['core'],
+      kind: 'section',
+      itemId: enterprise ? 'section-enterprise-path' : 'section-core-path',
+      pathFact: true,
+      text: enterprise ? 'Commercial Plus / Enterprise. Weekly attendance 1,000+.' : 'Mid-size Core. Weekly attendance 250–999.',
+      plain: enterprise ? 'Commercial Plus / Enterprise. Weekly attendance 1,000+.' : 'Mid-size Core. Weekly attendance 250–999.',
+    });
   });
   (pack.items || []).forEach((item) => {
     const group = KIND_GROUP[item.kind];

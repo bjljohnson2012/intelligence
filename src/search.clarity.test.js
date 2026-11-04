@@ -59,6 +59,17 @@ test('clarity queries land on the pack item they name', () => {
   }
 });
 
+test('enterprise and Thing to plan land on the path and the Plan section', () => {
+  const enterprise = top('enterprise');
+  assert.equal(enterprise.label, 'Commercial Plus / Enterprise');
+  assert.equal(enterprise.pathLabel, 'Enterprise');
+  assert.notEqual(enterprise.label, 'Altogether');
+  const plan = searchPack(index, 'Thing to plan', 'all', 3);
+  assert.ok(plan.some((hit) => hit.go === 'bets' && /plan|thing to plan/i.test(`${hit.label} ${hit.plain || ''}`)));
+  const longer = searchPack(index, 'Thing to plan for', 'all', 3);
+  assert.ok(longer.some((hit) => hit.go === 'bets'));
+});
+
 test('search keeps the other path reachable and ranks the current path first', () => {
   const onCore = searchPack(index, 'Pushpay', 'core', 5);
   assert.ok(onCore.some((hit) => /pushpay/i.test(hit.label)));

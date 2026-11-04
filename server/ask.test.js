@@ -73,6 +73,29 @@ test('ask limits stay at or above 20 and a minted session gets a grounded answer
   }
 });
 
+test('Azure and Microsoft questions stay Explicit Unknown', async () => {
+  const app = await start();
+  try {
+    const cookie = sessionCookie('bjljohnson2012@gmail.com', '127.0.0.1');
+    for (const question of ['What about Azure?', 'What is the Azure migration cost?', 'Should we use Microsoft?']) {
+      const response = await fetch(app.base + '/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', cookie },
+        body: JSON.stringify({ question, pathHint: 'core' }),
+      });
+      const body = await response.json();
+      assert.equal(body.status, 'explicit_unknown', question);
+      assert.match(body.answer, /does not say/i);
+      assert.equal(/safe switch/i.test(body.answer), false, question);
+      assert.equal(/pricing/i.test(body.answer), false, question);
+    }
+    assert.equal(app.sent.length, 0);
+  } finally {
+    await app.close();
+    await rm(app.distDir, { recursive: true, force: true });
+  }
+});
+
 test('a question the pack does not answer stays Explicit Unknown', async () => {
   const app = await start();
   try {

@@ -170,6 +170,9 @@ export async function answerQuestion({ distDir, env = {}, question, pathHint, co
   const pack = loadPack(distDir);
   const pathName = normalizePath(pathHint);
   const text = String(question || '').trim();
+  if (/\b(azure|microsoft)\b/i.test(text)) {
+    return explicitUnknown(pack, pathName, 'Not in the pack.', []);
+  }
   if (/go live|launch core live|invent a win rate/i.test(text)) {
     const hits = searchPack(pack.index, 'live core hold', pathName, 4);
     return {
