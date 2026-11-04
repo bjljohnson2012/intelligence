@@ -51,6 +51,7 @@ function show(name, anchor) {
   if (target) target.scrollIntoView({ block: 'start' });
   else window.scrollTo(0, 0);
   history.replaceState(null, '', `#${key}${anchor ? `-${anchor}` : ''}`);
+  if (ids.has('t-comp')) wakeEvidence();
 }
 
 function paintPath() {
@@ -141,9 +142,26 @@ function renderPalette() {
   });
 }
 
+function closePalette() {
+  const palette = document.getElementById('palette');
+  const list = document.getElementById('palList');
+  const input = document.getElementById('q');
+  if (list) list.replaceChildren();
+  if (input) input.value = '';
+  if (palette?.open) palette.close();
+}
+
 function openHit(hit) {
-  document.getElementById('palette').close();
+  closePalette();
   show(hit.go, hit.anchor);
+}
+
+function wakeEvidence() {
+  document.querySelectorAll('#evidence img').forEach((img) => {
+    img.loading = 'eager';
+    const src = img.getAttribute('src');
+    if (src && !img.complete) img.src = src;
+  });
 }
 
 function openPalette() {
@@ -303,7 +321,13 @@ document.getElementById('q')?.addEventListener('keydown', (event) => {
 document.addEventListener('keydown', (event) => {
   const meta = event.metaKey || event.ctrlKey;
   if (meta && event.key.toLowerCase() === 'k') { event.preventDefault(); openPalette(); }
-  if (event.key === 'Escape' && document.getElementById('palette')?.open) document.getElementById('palette').close();
+  if (event.key === 'Escape') closePalette();
+});
+document.getElementById('palette')?.addEventListener('click', (event) => {
+  if (event.target.id === 'palette') closePalette();
+});
+document.getElementById('palette')?.addEventListener('close', () => {
+  document.getElementById('palList')?.replaceChildren();
 });
 
 document.addEventListener('click', (event) => {

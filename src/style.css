@@ -267,3 +267,27 @@ body[data-path="enterprise"] .pathbanner{border-left-color:var(--orange)}
 #lightbox img{width:100%;height:auto;border:1px solid var(--line);border-radius:6px}
 :root{--accent:#0A5BCC;--accent-soft:#E6F4FC}
 @media (max-width:760px){.pathcards{grid-template-columns:1fr}}
+
+/* Live fixes: palette must disappear when closed, header stays one row, thumbs show the shot. */
+#palette, #lightbox { display: none; }
+#palette[open] { display: flex; flex-direction: column; }
+#lightbox[open] { display: block; }
+header { position: sticky; top: 0; z-index: 40; background: var(--surface); }
+.wrap { max-width: 1360px; }
+.hrow { display: grid; grid-template-columns: auto auto minmax(140px, 220px) auto auto; align-items: center; gap: 10px; flex-wrap: nowrap; justify-content: start; }
+.brand, .pathswitch, .meta, .signout { min-width: 0; }
+.brand { white-space: nowrap; font-size: 16px; }
+.pathswitch { flex-wrap: nowrap; }
+.searchbtn { min-width: 0; width: 100%; border-radius: 6px; }
+.signout { white-space: nowrap; border-radius: 6px; justify-self: end; }
+.meta { white-space: nowrap; margin-left: 0; font-size: 11px; }
+nav { display: flex; flex-wrap: wrap; overflow: visible; gap: 4px; }
+nav button { letter-spacing: .03em; padding: 6px 8px; }
+.gitem img { display: block; width: 100%; height: auto; aspect-ratio: auto; object-fit: contain; object-position: center top; background: #fff; }
+#evidence { padding-right: 18px; }
+#evidence::after { display: none; }
+@media (max-width: 980px) {
+  .hrow { grid-template-columns: 1fr auto; }
+  .searchbtn, .meta { grid-column: 1 / -1; }
+  .signout { grid-column: 2; grid-row: 1; }
+}
