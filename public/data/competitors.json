@@ -1,8 +1,78 @@
-{"refresh":"Manual. Re-check vendor pages monthly. Last checked 2026-11-04.","source":"2026-11-04-comp-quality-gaps.md, 2026-11-04-clarity-value-story.md, 2026-11-03-revenue-core-plan.md",
-"rivals":[
-{"name":"Planning Center","promise":"Every part of your church, finally in sync","pricing":"Published","headlineCount":"78,000","strength":"Loved by staff, modular, published pricing","whyUs":"Real fund accounting and one finance trail; a migration specialist instead of self-serve","dont":"Fight on ease of use or match free giving","sizes":"Mid-size"},
-{"name":"Pushpay","promise":"...grows generosity and deepens connection","pricing":"Quote only","headlineCount":"14,000+","strength":"Large-church proof and a public migration dashboard","whyUs":"Accounting in the suite; softer lock-in than 1–3 year terms","dont":"Show megachurch logo walls to mid-size churches; attack by name in public copy without Legal","sizes":"Large"},
-{"name":"Subsplash","promise":"Grow your church every day of the week.","pricing":"Giving rates public, platform by quote","headlineCount":"20,000","strength":"Branded app and media","whyUs":"Finance and people records over media polish","dont":"Compete on app or TV polish","sizes":"Both"},
-{"name":"ACS / Realm","promise":"Less time managing systems. More time leading people.","pricing":"Entry tier listed, rest by quote","headlineCount":"thousands / 50,000+","strength":"Real general ledger; denominational channel","whyUs":"Near parity on accounting; edge would have to be switching tools (not yet proven)","dont":"Claim Realm lacks fund accounting","sizes":"Both"},
-{"name":"Tithely / Breeze","promise":"Stop Overpaying for Church Management Software.","pricing":"Published","headlineCount":"50,000 vs 53,000 (conflict)","strength":"Simple, cancel anytime, free giving","whyUs":"Partnership plus accounting depth","dont":"Treat as a rival until ownership is confirmed (Unknown)","sizes":"Small / mid-size"},
-{"name":"Ministry Brands (us)","promise":"Three different front-door promises","pricing":"Quote only (/pricing returns 404)","headlineCount":"90,000 vs 55,000 (conflict)","strength":"Fund accounting, payroll and payables in one vendor","whyUs":"—","dont":"Lead with 'grow giving' (0 of 71 buyers mention it)","sizes":"Both"}]}
+{
+  "refresh": "Manual. Re-check vendor pages monthly. Last checked 2026-11-04.",
+  "source": "2026-11-04-comp-quality-gaps.md, 2026-11-04-clarity-value-story.md, 2026-11-03-revenue-core-plan.md",
+  "rivals": [
+    {
+      "name": "Planning Center",
+      "promise": "Every part of your church, finally in sync",
+      "pricing": "Published",
+      "headlineCount": "Held \u00b7 R9",
+      "strength": "Loved by staff, modular, published pricing",
+      "whyUs": "Real fund accounting and one finance trail; a migration specialist instead of self-serve",
+      "dont": "Fight on ease of use or match free giving",
+      "sizes": "Mid-size",
+      "headlineStatus": "held",
+      "headlineNote": "No figure while R9 is held."
+    },
+    {
+      "name": "Pushpay",
+      "promise": "...grows generosity and deepens connection",
+      "pricing": "Quote only",
+      "headlineCount": "14,000+ \u00b7 vendor claim \u00b7 undated \u00b7 captured 2026-11-04",
+      "strength": "Large-church proof and a public migration dashboard",
+      "whyUs": "Accounting in the suite; softer lock-in than 1\u20133 year terms",
+      "dont": "Show megachurch logo walls to mid-size churches; attack by name in public copy without Legal",
+      "sizes": "Large",
+      "headlineStatus": "vendor-claim",
+      "headlineNote": "Vendor self-claim. The claim itself is undated. Page captured 2026-11-04."
+    },
+    {
+      "name": "Subsplash",
+      "promise": "Grow your church every day of the week.",
+      "pricing": "Giving rates public, platform by quote",
+      "headlineCount": "20,000 \u00b7 vendor claim \u00b7 undated \u00b7 captured 2026-11-04",
+      "strength": "Branded app and media",
+      "whyUs": "Finance and people records over media polish",
+      "dont": "Compete on app or TV polish",
+      "sizes": "Both",
+      "headlineStatus": "vendor-claim",
+      "headlineNote": "Vendor self-claim. The claim itself is undated. Page captured 2026-11-04."
+    },
+    {
+      "name": "ACS / Realm",
+      "promise": "Less time managing systems. More time leading people.",
+      "pricing": "Entry tier listed, rest by quote",
+      "headlineCount": "thousands / 50,000+ \u00b7 vendor claim \u00b7 undated \u00b7 captured 2026-11-04",
+      "strength": "Real general ledger; denominational channel",
+      "whyUs": "Near parity on accounting; edge would have to be switching tools (not yet proven)",
+      "dont": "Claim Realm lacks fund accounting",
+      "sizes": "Both",
+      "headlineStatus": "vendor-claim",
+      "headlineNote": "Vendor self-claim. The claim itself is undated. Page captured 2026-11-04."
+    },
+    {
+      "name": "Tithely / Breeze",
+      "promise": "Stop Overpaying for Church Management Software.",
+      "pricing": "Published",
+      "headlineCount": "50,000 vs 53,000 (conflict)",
+      "strength": "Simple, cancel anytime, free giving",
+      "whyUs": "Partnership plus accounting depth",
+      "dont": "Treat as a rival until ownership is confirmed (Unknown)",
+      "sizes": "Small / mid-size",
+      "headlineStatus": "conflict",
+      "headlineNote": "Conflict only. Not one customer count. Captured 2026-11-03/04. See mb_amplify.png."
+    },
+    {
+      "name": "Ministry Brands (us)",
+      "promise": "Three different front-door promises",
+      "pricing": "Quote only (/pricing returns 404)",
+      "headlineCount": "90,000 vs 55,000 (conflict)",
+      "strength": "Fund accounting, payroll and payables in one vendor",
+      "whyUs": "\u2014",
+      "dont": "Lead with 'grow giving' (0 of 71 buyers mention it)",
+      "sizes": "Both",
+      "headlineStatus": "conflict",
+      "headlineNote": "Conflict only. Not one customer count. Captured 2026-11-03/04. See mb_amplify.png."
+    }
+  ]
+}

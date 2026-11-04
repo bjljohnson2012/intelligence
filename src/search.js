@@ -32,7 +32,7 @@ export const STILL_OPEN = [
   { id: 'R6', label: 'Attendance / band quality', aliases: ['attendance', 'band quality', 'default 200', 'sfdc', 'in-seat', 'in seat'] },
   { id: 'R7', label: 'B6 go/no-go owners + dates', aliases: ['owners and dates', 'go/no-go', 'go no go'] },
   { id: 'R8', label: 'Fees / ACH rate card', aliases: ['fees', 'ach', 'rate card', 'processing fees'] },
-  { id: 'R9', label: 'PCO 78,000 hard-fail bump', aliases: ['78000', '78000 churches', 'pco claim', 'hard-fail'] },
+  { id: 'R9', label: 'PCO headline count · Held · R9', aliases: ['78000', '78000 churches', 'pco claim', 'hard-fail', 'held r9'] },
 ];
 
 const COMPETITORS = [
@@ -58,7 +58,7 @@ const PLAN_NOTES = [
   ['Thing to think about', 'strategic questions think about'],
 ];
 
-const GO = new Set(['start', 'plain', 'win', 'tam', 'icp', 'comp', 'self', 'value', 'resid', 'council', 'bets', 'ask']);
+const GO = new Set(['start', 'plain', 'win', 'tam', 'icp', 'comp', 'self', 'value', 'resid', 'council', 'bets', 'ask', 'buyers']);
 
 const WEIGHT = {
   badge: { exact: 48, stem: 18, fuzzy: 8 },

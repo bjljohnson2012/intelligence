@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sayCheck } from '../src/say.js';
 import { indexFromPack, searchPack } from '../src/search.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -172,6 +173,20 @@ export async function answerQuestion({ distDir, env = {}, question, pathHint, co
   const text = String(question || '').trim();
   if (/\b(azure|microsoft)\b/i.test(text)) {
     return explicitUnknown(pack, pathName, 'Not in the pack.', []);
+  }
+  const said = sayCheck(text);
+  if (said.matched) {
+    const hits = searchPack(pack.index, said.owner || 'still open', pathName, 3);
+    return {
+      answer: said.answer,
+      path: responsePath(pathName),
+      citations: hits.slice(0, 3).map((hit) => cite(hit, pathName)),
+      residualsNamed: said.owner ? [said.owner] : [],
+      confidence: said.confidence || 'high',
+      status: said.status,
+      unknownReason: said.status === 'answered' ? '' : said.answer,
+      corpusVersion: pack.pack.corpusVersion,
+    };
   }
   if (/go live|launch core live|invent a win rate/i.test(text)) {
     const hits = searchPack(pack.index, 'live core hold', pathName, 4);

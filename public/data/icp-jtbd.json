@@ -1,0 +1,59 @@
+{
+  "source": "2026-11-04 ICP JTBD buyer map. CM2 n=71, Medium, one coder, rivals and legacy F1, not Amplify.",
+  "coldOpen": "J1 and J2 discovery only. Not Amplify proof until R3 (public n=0).",
+  "order": ["J1 ease", "J2 a real person", "J3 one place", "J4 books and reports"],
+  "fees": "Hygiene only (R8).",
+  "jobs": [
+    {"id": "J1", "words": "Easy for my office and volunteers", "of71": "about 50 of 71", "cm2Percent": 70, "use": "Allowed opener. Discovery only."},
+    {"id": "J2", "words": "A real person answers", "of71": "about 33 of 71", "cm2Percent": 46, "use": "Allowed opener. Discovery only."},
+    {"id": "J3", "words": "One place, no silos", "of71": "about 20 of 71", "cm2Percent": 28, "use": "Middle of the story."},
+    {"id": "J4", "words": "Books and reports close", "of71": "about 19 of 71", "cm2Percent": null, "use": "Closer once gift-to-books is demoable (R2)."},
+    {"id": "J8", "words": "Switch without losing history", "of71": "about 14 of 71", "cm2Percent": null, "use": "Diligence. Safe Switch is still FAIL (R1)."}
+  ],
+  "refused": [
+    "Grow giving as an Amplify claim (0 of 71)",
+    "Weeks not months",
+    "Either customer count as one fact",
+    "Undated outcome stats",
+    "Facebook or Instagram follower counts",
+    "Planning Center headline count while R9 is held",
+    "Amplify is easy or well supported while public reviews are n=0"
+  ],
+  "roles": [
+    {"role": "Senior pastor", "job": "Signs. Any change to how the church asks for money.", "confidence": "Low-Medium"},
+    {"role": "Church administrator", "job": "Daily user. Strong veto.", "confidence": "Low hypothesis"},
+    {"role": "Executive pastor", "job": "Evaluates in the high end of band C, when present.", "confidence": "Low hypothesis"},
+    {"role": "Treasurer", "job": "Must approve giving, deposits, fees, and the audit trail.", "confidence": "Low-Medium"},
+    {"role": "Board", "job": "Ratifies multi-year or large contracts.", "confidence": "Low"},
+    {"role": "Kids and worship leads", "job": "Operator veto on Sunday tools.", "confidence": "Low"}
+  ],
+  "day": {
+    "badge": "Hypothesis",
+    "confidence": "Low",
+    "text": "Office admin runs people, giving, and Sunday check-in. The pastor cares that volunteers can learn it. The treasurer needs statements and deposit truth. Running two systems is short and painful. No day-diary with n at least 30."
+  },
+  "maps": {
+    "core": {
+      "label": "Core · band C",
+      "confidence": "Low hypothesis",
+      "seats": [
+        {"seat": "User buyer", "who": "Admin, office, and volunteers who touch check-in or scheduling", "demo": "Yes, for ease"},
+        {"seat": "Economic buyer", "who": "Senior pastor on the budget, often with the treasurer on giving dollars", "demo": "Yes, for giving"},
+        {"seat": "Leader", "who": "Senior pastor, or the executive pastor when present", "demo": "Usually"},
+        {"seat": "Decision maker", "who": "Pastor and finance together. Board if the term is multi-year.", "demo": "Signature"},
+        {"seat": "Stakeholders", "who": "Treasurer, kids or check-in lead, board", "demo": "Diligence"}
+      ]
+    },
+    "enterprise": {
+      "label": "Enterprise · 1,000+",
+      "confidence": "Explicit Unknown",
+      "seats": [
+        {"seat": "User buyer", "who": "Explicit Unknown as a map", "demo": "Do not copy the Core map"},
+        {"seat": "Economic buyer", "who": "Explicit Unknown. Formal review is common. Not proven here.", "demo": "Unknown"},
+        {"seat": "Leader", "who": "Explicit Unknown", "demo": "Unknown"},
+        {"seat": "Decision maker", "who": "Explicit Unknown", "demo": "Unknown"},
+        {"seat": "Stakeholders", "who": "Campus and finance leads. Not a copied megachurch logo wall.", "demo": "Unknown"}
+      ]
+    }
+  }
+}

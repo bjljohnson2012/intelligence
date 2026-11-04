@@ -1,0 +1,122 @@
+{
+  "heading": "What buyers see and say",
+  "read": "2026-11-04",
+  "note": "Followers are not reach. Counts are a profile read on this date. SP13 is dropped.",
+  "source": "Phase 1 audit section 3, profile read 2026-11-04. X cells the audit names: Ministry Brands 736, Planning Center 7683, Pushpay 3695. LinkedIn cells the audit names: Pushpay 20255, Subsplash 16557, Ministry Brands 15298, Tithely 8832. The rest of this table is that same read.",
+  "reach": [
+    {
+      "id": "SP01",
+      "platform": "X followers",
+      "confidence": "High",
+      "date": "2026-11-04",
+      "method": "Profile read",
+      "primary": "https://x.com",
+      "counts": {
+        "Ministry Brands": 736,
+        "Planning Center": 7683,
+        "Pushpay": 3695,
+        "Tithely": 2024,
+        "Subsplash": 2536,
+        "ACS": 2265,
+        "Breeze": 261
+      }
+    },
+    {
+      "id": "SP02",
+      "platform": "LinkedIn followers",
+      "confidence": "Medium",
+      "date": "2026-11-04",
+      "method": "Profile read",
+      "primary": "https://www.linkedin.com",
+      "counts": {
+        "Ministry Brands": 15298,
+        "Planning Center": 12722,
+        "Pushpay": 20255,
+        "Tithely": 8832,
+        "Subsplash": 16557,
+        "ACS": 8004,
+        "Breeze": null
+      },
+      "unknown": ["Breeze"]
+    },
+    {
+      "id": "SP14+SP15",
+      "platform": "Facebook and Instagram",
+      "confidence": "Explicit Unknown",
+      "date": "2026-11-04",
+      "method": "Not read",
+      "primary": null,
+      "counts": null,
+      "note": "Login wall. Not read. No count."
+    }
+  ],
+  "posts": {
+    "id": "SP03",
+    "confidence": "Medium",
+    "date": "2026-06 to 2026-09",
+    "method": "X impressions on Ministry Brands AI posts",
+    "views": [13, 34, 42, 45, 45],
+    "decision": "Park Equip off the cold open. The first screen is not office ease."
+  },
+  "quotes": [
+    {
+      "id": "SP04",
+      "text": "Their customer service team and responsiveness is elite.",
+      "where": "X, Jan 2026",
+      "confidence": "Medium"
+    },
+    {
+      "id": "SP06",
+      "text": "too much time and effort to switch to another.",
+      "where": "r/worshipleaders, Jan 2026",
+      "confidence": "Medium"
+    },
+    {
+      "id": "SP07",
+      "text": "does not import giving history natively, you have to do that manually.",
+      "where": "r/churchtech, Aug 2025",
+      "confidence": "Medium"
+    },
+    {
+      "id": "SP08",
+      "text": "customer support is meh. still have not heard back.",
+      "where": "r/churchtech, Feb 2026",
+      "confidence": "Medium"
+    }
+  ],
+  "also": [
+    {
+      "id": "SP05",
+      "text": "Peer migration tool, cited in the 2026-11-04 read.",
+      "confidence": "Low",
+      "date": "2026-11-04"
+    },
+    {
+      "id": "SP09",
+      "text": "Church-IT Amplify price read.",
+      "confidence": "Low",
+      "date": "2026-11-04"
+    },
+    {
+      "id": "SP10",
+      "file": "pushpay_social_proof.png",
+      "decision": "Refuse undated lift claims. Date every number.",
+      "confidence": "High",
+      "date": "2026-11-04"
+    },
+    {
+      "id": "SP11",
+      "file": "mb_home.png",
+      "decision": "Refuse Equip as the Core open.",
+      "confidence": "High",
+      "date": "2026-11-03"
+    },
+    {
+      "id": "SP12",
+      "file": "mb_amplify.png",
+      "decision": "Keep the customer-count conflict only. Do not publish either number as a fact.",
+      "confidence": "High",
+      "date": "2026-11-03"
+    }
+  ]
+}

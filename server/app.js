@@ -332,6 +332,14 @@ export function createApp({ env, sendEmail, distDir, now = () => Date.now(), com
     return res.json({ email: session.email });
   });
 
+  app.get('/api/admin/council', (req, res) => {
+    const session = readSession(req, secret, allowlist, now);
+    if (!session || session.email !== 'bjljohnson2012@gmail.com') return refused(res);
+    const file = path.join(path.dirname(fileURLToPath(import.meta.url)), 'council-admin.json');
+    res.set('Cache-Control', 'private, no-store');
+    return res.type('json').send(readFileSync(file));
+  });
+
   app.use((req, res, next) => {
     if (readSession(req, secret, allowlist, now)) {
       res.set('Cache-Control', 'private, no-store');
