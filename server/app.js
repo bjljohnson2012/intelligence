@@ -8,7 +8,7 @@ const loginPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'login
 const loginPage = () => readFileSync(loginPath, 'utf8');
 
 export const LIMITS = {
-  codeTtlMs: 10 * 60 * 1000,
+  codeTtlMs: 5 * 60 * 1000,
   sessionTtlSec: 7 * 24 * 60 * 60,
   cooldownMs: 60 * 1000,
   requestPerEmail: 3,
@@ -63,8 +63,8 @@ function b64url(buf) {
   return Buffer.from(buf).toString('base64url');
 }
 
-function signSession(email, exp, secret) {
-  const payload = b64url(JSON.stringify({ email, exp }));
+function signSession(email, exp, ip, secret) {
+  const payload = b64url(JSON.stringify({ email, exp, ip }));
   const sig = b64url(createHmac('sha256', secret).update(payload).digest());
   return `${payload}.${sig}`;
 }
@@ -88,6 +88,7 @@ function readSession(req, secret, allowlist, now) {
   let data;
   try { data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')); } catch { return null; }
   if (!data || typeof data.email !== 'string' || typeof data.exp !== 'number') return null;
+  if (typeof data.ip !== 'string' || data.ip !== clientIp(req)) return null;
   if (data.exp * 1000 <= now()) return null;
   if (!allowlist.has(data.email)) return null;
   return { email: data.email };
@@ -102,8 +103,71 @@ function refused(res) {
   return res.status(401).json({ status: 'refused', unknownReason: 'Sign-in required' });
 }
 
+function canonicalIpv4(ip) {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return '';
+  const nums = [];
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return '';
+    const n = Number(part);
+    if (n > 255) return '';
+    nums.push(String(n));
+  }
+  return nums.join('.');
+}
+
+function canonicalIpv6(ip) {
+  const halves = ip.split('::');
+  if (halves.length > 2) return '';
+  const parseSide = (side) => {
+    if (!side) return [];
+    const groups = side.split(':');
+    if (groups.some((group) => group === '')) return null;
+    const last = groups[groups.length - 1];
+    if (last.includes('.')) {
+      const v4 = canonicalIpv4(last);
+      if (!v4) return null;
+      const [a, b, c, d] = v4.split('.').map(Number);
+      groups.splice(groups.length - 1, 1, ((a << 8) | b).toString(16), ((c << 8) | d).toString(16));
+    }
+    if (groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) return null;
+    return groups;
+  };
+  const left = parseSide(halves[0]);
+  if (!left) return '';
+  let groups = left;
+  if (halves.length === 2) {
+    const right = parseSide(halves[1]);
+    if (!right) return '';
+    const missing = 8 - left.length - right.length;
+    if (missing < 1) return '';
+    groups = [...left, ...Array(missing).fill('0'), ...right];
+  }
+  if (groups.length !== 8) return '';
+  const padded = groups.map((group) => group.padStart(4, '0'));
+  const mapped = padded.slice(0, 5).every((group) => group === '0000') && padded[5] === 'ffff';
+  if (mapped) {
+    const hi = Number.parseInt(padded[6], 16);
+    const lo = Number.parseInt(padded[7], 16);
+    return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+  }
+  return padded.join(':');
+}
+
+function canonicalIp(value) {
+  let ip = String(value || '').trim().toLowerCase();
+  if (!ip) return '';
+  if (ip.startsWith('[') && ip.endsWith(']')) ip = ip.slice(1, -1);
+  const zone = ip.indexOf('%');
+  if (zone !== -1) ip = ip.slice(0, zone);
+  if (ip.startsWith('::ffff:') && ip.slice(7).includes('.')) ip = ip.slice(7);
+  if (ip.includes(':')) return canonicalIpv6(ip);
+  if (ip.includes('.')) return canonicalIpv4(ip);
+  return '';
+}
+
 function clientIp(req) {
-  return req.ip || req.socket?.remoteAddress || 'unknown';
+  return canonicalIp(req.ip || req.socket?.remoteAddress || '');
 }
 
 function sameOrigin(req) {
@@ -156,7 +220,7 @@ export function createApp({ env, sendEmail, distDir, now = () => Date.now() }) {
     if (!email) return res.status(400).json({ ok: false });
     const t = now();
     sweep(t);
-    const ip = clientIp(req);
+    const ip = clientIp(req) || 'unknown';
     const over = limited(buckets, `req:${email}`, LIMITS.requestPerEmail, LIMITS.requestWindowMs, t)
       || limited(buckets, `reqip:${ip}`, LIMITS.requestPerIp, LIMITS.requestWindowMs, t)
       || ((lastSent.get(email) || 0) + LIMITS.cooldownMs > t);
@@ -198,12 +262,14 @@ export function createApp({ env, sendEmail, distDir, now = () => Date.now() }) {
     const t = now();
     sweep(t);
     const ip = clientIp(req);
+    const rateIp = ip || 'unknown';
     if (limited(buckets, `ver:${email}`, LIMITS.verifyPerEmail, LIMITS.verifyWindowMs, t)
-      || limited(buckets, `verip:${ip}`, LIMITS.verifyPerIp, LIMITS.verifyWindowMs, t)) {
+      || limited(buckets, `verip:${rateIp}`, LIMITS.verifyPerIp, LIMITS.verifyWindowMs, t)) {
       return res.status(429).json({ ok: false, message: 'Too many tries. Wait a minute and try again.' });
     }
     bump(buckets, `ver:${email}`, LIMITS.verifyWindowMs, t);
-    bump(buckets, `verip:${ip}`, LIMITS.verifyWindowMs, t);
+    bump(buckets, `verip:${rateIp}`, LIMITS.verifyWindowMs, t);
+    if (!ip) return refused(res);
     const rec = codes.get(email);
     const actual = hashCode(code, rec?.salt || DUMMY_SALT);
     const expected = rec?.hash || DUMMY_HASH;
@@ -216,7 +282,7 @@ export function createApp({ env, sendEmail, distDir, now = () => Date.now() }) {
     }
     codes.delete(email);
     const exp = Math.floor(t / 1000) + LIMITS.sessionTtlSec;
-    writeCookie(res, signSession(email, exp, secret), LIMITS.sessionTtlSec);
+    writeCookie(res, signSession(email, exp, ip, secret), LIMITS.sessionTtlSec);
     return res.json({ ok: true, email });
   });
 

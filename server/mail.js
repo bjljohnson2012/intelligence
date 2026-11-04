@@ -26,7 +26,7 @@ export function signInContent(code) {
   const safe = escapeHtml(code);
   const text = [
     `Your sign-in code for the 2026 Market Plan is ${code}.`,
-    'It expires in 10 minutes.',
+    'It expires in 5 minutes.',
     'If you did not ask for this, you can ignore this email or reply to it.',
   ].join('\n');
   const html = `<!doctype html>
@@ -34,7 +34,7 @@ export function signInContent(code) {
 <body style="margin:0;background:#0F3E80;font-family:Helvetica Neue,Arial,sans-serif">
   <div style="max-width:480px;margin:0 auto;padding:32px 20px;color:#ffffff">
     <h1 style="font-size:22px;line-height:1.3;margin:0 0 12px">Your sign-in code</h1>
-    <p style="font-size:16px;line-height:1.5;color:#B2E1F6">Use this code to open the 2026 Market Plan. It expires in 10 minutes.</p>
+    <p style="font-size:16px;line-height:1.5;color:#B2E1F6">Use this code to open the 2026 Market Plan. It expires in 5 minutes.</p>
     <p style="font-size:32px;line-height:1.2;font-family:ui-monospace,monospace;letter-spacing:0.18em;text-align:center;background:#0A5BCC;border-radius:10px;padding:18px 8px;margin:20px 0;color:#ffffff;user-select:all">${safe}</p>
     <p style="font-size:16px;line-height:1.5;color:#B2E1F6">If you did not ask for this, you can ignore this email or reply to it.</p>
   </div>
