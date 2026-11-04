@@ -20,7 +20,7 @@ Only these addresses can sign in:
 - bjljohnson2012@gmail.com
 - alexander.varden@gmail.com
 
-The login page asks for an email and a 6-digit code. Addresses that are not on the list get the same response and no email. The code is stored hashed, expires in 10 minutes, and a person can request another code after 60 seconds (3 requests an hour). A successful code sets an `intel_session` cookie: httpOnly, Secure, SameSite=Lax, signed with `SESSION_SECRET`, for 7 days.
+The login page asks for an email and a 6-digit code. Addresses that are not on the list get the same response and no email. The code is stored hashed, expires in 5 minutes, and a person can request another code after 60 seconds (3 requests an hour). A successful code sets an `intel_session` cookie: httpOnly, Secure, SameSite=Lax, signed with `SESSION_SECRET`, for 7 days from that verification. The signature includes the client IP seen at sign-in. The same browser on that IP is admitted, and opening the plan or `/login` does not send a new code. A different IP, a sign-out, or a session older than 7 days needs a fresh code.
 
 People who are not signed in are redirected to `/login`. They do not receive the plan HTML, scripts, or `/data` files. API calls without a session return `401` `{"status":"refused","unknownReason":"Sign-in required"}`.
 

@@ -9,7 +9,10 @@ test('sign-in mail uses ben@benjohnson.ai and a readable code', () => {
   const content = signInContent('123456');
   assert.match(content.html, /font-size:32px/);
   assert.match(content.html, /123456/);
-  assert.match(content.text, /expires in 10 minutes/);
+  assert.match(content.text, /expires in 5 minutes/);
+  assert.match(content.html, /expires in 5 minutes/);
+  assert.equal(content.text.includes('10 minutes'), false);
+  assert.equal(content.html.includes('10 minutes'), false);
   assert.match(content.text, /did not ask for this/);
 });
 

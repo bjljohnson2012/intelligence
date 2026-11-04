@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -55,10 +56,22 @@ function cookie(res) {
   return lines.find((line) => line.startsWith('intel_session=')) || '';
 }
 
-async function post(base, pathname, body) {
+function sessionPayload(setCookie) {
+  const token = setCookie.split(';')[0].slice('intel_session='.length);
+  const payload = token.split('.')[0];
+  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+}
+
+function legacyCookie(email, exp) {
+  const payload = Buffer.from(JSON.stringify({ email, exp })).toString('base64url');
+  const sig = createHmac('sha256', SECRET).update(payload).digest('base64url');
+  return `intel_session=${payload}.${sig}`;
+}
+
+async function post(base, pathname, body, headers = {}) {
   const res = await fetch(base + pathname, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
     redirect: 'manual',
   });
@@ -89,9 +102,12 @@ test('unsigned visitors get the login page and not the plan', async () => {
     const html = await login.text();
     assert.equal(login.status, 200);
     assert.match(html, /Email me a code/);
+    assert.match(html, /Codes expire in 5 minutes/);
+    assert.equal(html.includes('10 minutes'), false);
     assert.match(html, /Only the newest code works; each new email replaces the last\./);
     assert.equal(html.includes('PLAN_MARKER'), false);
     assert.equal(html.includes('weekly attendance'), false);
+    assert.equal(app.sent.length, 0);
 
     const me = await fetch(app.base + '/api/auth/me');
     assert.equal(me.status, 401);
@@ -324,6 +340,143 @@ test('the allowlist cannot be widened or narrowed', () => {
     sendEmail: async () => ({ ok: true }),
     distDir: '/tmp',
   }), /exactly/);
+});
+
+test('the same browser and IP stay signed in and do not get another code', async () => {
+  const distDir = await fixture();
+  const app = await start({ distDir });
+  const ip = { 'x-forwarded-for': '203.0.113.10' };
+  try {
+    await post(app.base, '/api/auth/request-code', { email: 'bjljohnson2012@gmail.com' }, ip);
+    const verified = await post(app.base, '/api/auth/verify', {
+      email: 'bjljohnson2012@gmail.com',
+      code: app.sent[0].code,
+    }, ip);
+    assert.equal(verified.res.status, 200);
+    const set = cookie(verified.res);
+    assert.match(set, /HttpOnly/i);
+    assert.match(set, /Secure/i);
+    assert.match(set, /Max-Age=604800/);
+    assert.equal(sessionPayload(set).ip, '203.0.113.10');
+    const jar = set.split(';')[0];
+    const mailed = app.sent.length;
+
+    const home = await fetch(app.base + '/', {
+      headers: { cookie: jar, 'x-forwarded-for': '203.0.113.10' },
+      redirect: 'manual',
+    });
+    assert.equal(home.status, 200);
+    assert.match(await home.text(), /PLAN_MARKER/);
+
+    const mapped = await fetch(app.base + '/', {
+      headers: { cookie: jar, 'x-forwarded-for': '::ffff:203.0.113.10' },
+      redirect: 'manual',
+    });
+    assert.equal(mapped.status, 200);
+
+    const mappedHex = await fetch(app.base + '/', {
+      headers: { cookie: jar, 'x-forwarded-for': '::ffff:cb00:710a' },
+      redirect: 'manual',
+    });
+    assert.equal(mappedHex.status, 200);
+
+    const forwarded = await fetch(app.base + '/', {
+      headers: { cookie: jar, 'x-forwarded-for': '198.51.100.9, 203.0.113.10' },
+      redirect: 'manual',
+    });
+    assert.equal(forwarded.status, 200);
+
+    const login = await fetch(app.base + '/login', {
+      headers: { cookie: jar, 'x-forwarded-for': '203.0.113.10' },
+      redirect: 'manual',
+    });
+    assert.equal(login.status, 302);
+    assert.equal(login.headers.get('location'), '/');
+    assert.equal(app.sent.length, mailed);
+
+    const other = await fetch(app.base + '/', {
+      headers: { cookie: jar, 'x-forwarded-for': '203.0.113.11' },
+      redirect: 'manual',
+    });
+    assert.equal(other.status, 302);
+    assert.equal(other.headers.get('location'), '/login');
+    const me = await fetch(app.base + '/api/auth/me', {
+      headers: { cookie: jar, 'x-forwarded-for': '203.0.113.11' },
+    });
+    assert.equal(me.status, 401);
+    assert.equal(app.sent.length, mailed);
+  } finally {
+    await app.close();
+    await rm(distDir, { recursive: true, force: true });
+  }
+});
+
+test('the same IPv6 address matches when the notation differs', async () => {
+  const distDir = await fixture();
+  const app = await start({ distDir });
+  try {
+    await post(app.base, '/api/auth/request-code', { email: 'alexander.varden@gmail.com' }, {
+      'x-forwarded-for': '2001:db8::1',
+    });
+    const verified = await post(app.base, '/api/auth/verify', {
+      email: 'alexander.varden@gmail.com',
+      code: app.sent[0].code,
+    }, { 'x-forwarded-for': '2001:db8::1' });
+    const jar = cookie(verified.res).split(';')[0];
+    assert.equal(sessionPayload(cookie(verified.res)).ip, '2001:0db8:0000:0000:0000:0000:0000:0001');
+    const mailed = app.sent.length;
+    const home = await fetch(app.base + '/', {
+      headers: { cookie: jar, 'x-forwarded-for': '2001:0db8:0000:0000:0000:0000:0000:0001' },
+      redirect: 'manual',
+    });
+    assert.equal(home.status, 200);
+    const other = await fetch(app.base + '/', {
+      headers: { cookie: jar, 'x-forwarded-for': '2001:db8::2' },
+      redirect: 'manual',
+    });
+    assert.equal(other.status, 302);
+    assert.equal(app.sent.length, mailed);
+  } finally {
+    await app.close();
+    await rm(distDir, { recursive: true, force: true });
+  }
+});
+
+test('a code dies at 5 minutes and a session without an IP is refused', async () => {
+  const distDir = await fixture();
+  const app = await start({ distDir });
+  try {
+    assert.equal(LIMITS.codeTtlMs, 5 * 60 * 1000);
+    assert.equal(LIMITS.sessionTtlSec, 7 * 24 * 60 * 60);
+    assert.equal(LIMITS.cooldownMs, 60 * 1000);
+    await post(app.base, '/api/auth/request-code', { email: 'bjljohnson2012@gmail.com' });
+    app.clock.t += LIMITS.codeTtlMs - 1;
+    const fresh = await post(app.base, '/api/auth/verify', {
+      email: 'bjljohnson2012@gmail.com',
+      code: app.sent[0].code,
+    });
+    assert.equal(fresh.res.status, 200);
+
+    app.clock.t += LIMITS.cooldownMs;
+    await post(app.base, '/api/auth/request-code', { email: 'bjljohnson2012@gmail.com' });
+    app.clock.t += LIMITS.codeTtlMs;
+    const stale = await post(app.base, '/api/auth/verify', {
+      email: 'bjljohnson2012@gmail.com',
+      code: app.sent[1].code,
+    });
+    assert.equal(stale.res.status, 401);
+
+    const exp = Math.floor(app.clock.t / 1000) + LIMITS.sessionTtlSec;
+    const home = await fetch(app.base + '/', {
+      headers: { cookie: legacyCookie('bjljohnson2012@gmail.com', exp) },
+      redirect: 'manual',
+    });
+    assert.equal(home.status, 302);
+    assert.equal(app.sent.length, 2);
+  } finally {
+    await app.close();
+    await rm(distDir, { recursive: true, force: true });
+  }
 });
 
 test('a tampered cookie cannot see the plan', async () => {
