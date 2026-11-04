@@ -4,8 +4,8 @@ Interactive planning app for the Ministry Brands 2026 market plan. Vite builds a
 
 The app has two paths:
 
-- **Mid-size churches (core)** — weekly attendance 250–999. This is where selling starts.
-- **Large churches** — weekly attendance 1,000+, including Commercial Plus and Enterprise. Named accounts, formal reviews, and multi-campus needs.
+- **Mid-size churches (core)** — weekly attendance 250–999. This is the first path in the plan. Live selling is on hold; the app is planning only.
+- **Large churches** — weekly attendance 1,000+, including Commercial Plus and Enterprise. Named accounts, formal reviews, and multi-campus needs. A separate path, not a leftover of the mid-size plan.
 
 Product copy stays in plain language. Say **Thing to plan for** and **Thing to think about**. Do not put internal tracker names in the product.
 
@@ -13,7 +13,7 @@ This repository is the source of truth for the build-out. Private file snapshots
 
 ## Sign-in
 
-Auth is a session on the VPS. There is no Cloudflare Access or Tunnel in front of this host.
+Auth is a session on the VPS. There is no Cloudflare Access, Tunnel, or Cloudflare DNS in front of this host. Leave the root Google MX for benjohnson.ai alone.
 
 Only these addresses can sign in:
 
@@ -24,7 +24,7 @@ The login page asks for an email and a 6-digit code. Addresses that are not on t
 
 People who are not signed in are redirected to `/login`. They do not receive the plan HTML, scripts, or `/data` files. API calls without a session return `401` `{"status":"refused","unknownReason":"Sign-in required"}`.
 
-Sign-in codes are sent with Resend. The only verified sending domain today is fieldschool.ai, so mail comes from `Intelligence <noreply@fieldschool.ai>` until a benjohnson.ai domain is verified in Resend. Change `AUTH_FROM_EMAIL` then. Shipping does not wait on that domain. The key stays in the server environment.
+Sign-in mail is sent with Resend from **`ben@benjohnson.ai`** only. The Resend domain `benjohnson.ai` (`ede6ca6b-2a53-4ace-a11b-d3f1391535e8`) is verified (DKIM, SPF, MX, and CNAME). Do not send from `noreply@fieldschool.ai`. The code is kept only after Resend accepts the message. The key stays in the server environment. The live host is not open yet: this repo change does not deploy, and no sign-in has been proven on the VPS.
 
 `POST /api/ask` still returns that same 401 after sign-in, until the plan answers are connected. The page then points at the closest sections.
 
@@ -39,10 +39,10 @@ npm run start          # node server/index.js on 127.0.0.1:8787
 
 `npm run dev` is only the Vite draft on your machine. It does not enforce sign-in. Do not expose it.
 
-Copy `deploy/.env.example` to `.env` in the repo root (or `deploy/.env`) before `npm run start`. Set `SESSION_SECRET` (`openssl rand -base64 48`), `RESEND_API_KEY`, and leave:
+Copy `.env.example` (same values as `deploy/.env.example`) to `.env` in the repo root before `npm run start`. Set `SESSION_SECRET` (`openssl rand -base64 48`) and `RESEND_API_KEY`, and leave:
 
 ```bash
-AUTH_FROM_EMAIL="Intelligence <noreply@fieldschool.ai>"
+AUTH_FROM_EMAIL=ben@benjohnson.ai
 ALLOWLIST_EMAILS=bjljohnson2012@gmail.com,alexander.varden@gmail.com
 PORT=8787
 HOST=127.0.0.1
@@ -54,13 +54,13 @@ Never commit `.env` or the Resend key.
 
 Notes and the Caddy site block are in [`deploy/`](deploy/).
 
-`deploy/deploy.sh` builds `dist/`, copies the app to `/opt/intelligence` on the VPS, installs production npm packages, and starts the Node process. It does not upload `.env`. On the server, once:
+`deploy/deploy.sh` is the install path. It has not been run for this change. When someone does run it, it builds `dist/`, copies the app to `/opt/intelligence` on the VPS, installs production npm packages, and starts the Node process. It does not upload `.env`. On the server, once:
 
 ```bash
 cp /opt/intelligence/deploy/.env.example /opt/intelligence/.env
 chmod 600 /opt/intelligence/.env
 # fill SESSION_SECRET and RESEND_API_KEY
-# leave AUTH_FROM_EMAIL as in deploy/.env.example (noreply@fieldschool.ai) until benjohnson.ai is verified
+# AUTH_FROM_EMAIL=ben@benjohnson.ai
 ```
 
 Caddy for this host runs in Docker (`ae-coach-caddy-1`). Inside that container, `127.0.0.1` is not the VPS host. `deploy.sh` starts Node with `--network container:ae-coach-caddy-1` so Caddy's `reverse_proxy 127.0.0.1:8787` reaches it, and port 8787 is not opened on the public internet. If the Caddy container is recreated, restart `intelligence` (it shares that network namespace).

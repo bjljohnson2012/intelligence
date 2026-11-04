@@ -26,11 +26,11 @@ async function start(opts = {}) {
     env: {
       SESSION_SECRET: SECRET,
       ALLOWLIST_EMAILS: ALLOW,
-      AUTH_FROM_EMAIL: 'Intelligence <noreply@fieldschool.ai>',
+      AUTH_FROM_EMAIL: 'ben@benjohnson.ai',
     },
     sendEmail: async (msg) => {
-      if (opts.failSend) throw new Error('mail down');
       sent.push(msg);
+      if (opts.failSend) throw new Error('mail down');
       return { ok: opts.sendOk === false ? false : true };
     },
     distDir: opts.distDir,
@@ -274,17 +274,55 @@ test('a session older than 7 days is refused', async () => {
   }
 });
 
-test('mail failure still returns the generic response', async () => {
+test('mail failure still returns the generic response and leaves no usable code', async () => {
   const distDir = await fixture();
-  const app = await start({ distDir, failSend: true });
+  const thrown = await start({ distDir, failSend: true });
   try {
-    const res = await post(app.base, '/api/auth/request-code', { email: 'bjljohnson2012@gmail.com' });
+    const res = await post(thrown.base, '/api/auth/request-code', { email: 'bjljohnson2012@gmail.com' });
     assert.equal(res.res.status, 200);
     assert.deepEqual(res.json, { ok: true });
+    assert.equal(res.text.includes(thrown.sent[0].code), false);
+    const verified = await post(thrown.base, '/api/auth/verify', {
+      email: 'bjljohnson2012@gmail.com',
+      code: thrown.sent[0].code,
+    });
+    assert.equal(verified.res.status, 401);
+    assert.equal(cookie(verified.res), '');
+  } finally {
+    await thrown.close();
+    await rm(distDir, { recursive: true, force: true });
+  }
+});
+
+test('a Resend rejection does not leave a code that can be verified', async () => {
+  const distDir = await fixture();
+  const app = await start({ distDir, sendOk: false });
+  try {
+    const res = await post(app.base, '/api/auth/request-code', { email: 'alexander.varden@gmail.com' });
+    assert.equal(res.res.status, 200);
+    assert.deepEqual(res.json, { ok: true });
+    const verified = await post(app.base, '/api/auth/verify', {
+      email: 'alexander.varden@gmail.com',
+      code: app.sent[0].code,
+    });
+    assert.equal(verified.res.status, 401);
   } finally {
     await app.close();
     await rm(distDir, { recursive: true, force: true });
   }
+});
+
+test('the allowlist cannot be widened or narrowed', () => {
+  assert.throws(() => createApp({
+    env: { SESSION_SECRET: SECRET, ALLOWLIST_EMAILS: `${ALLOW},extra@example.com` },
+    sendEmail: async () => ({ ok: true }),
+    distDir: '/tmp',
+  }), /exactly/);
+  assert.throws(() => createApp({
+    env: { SESSION_SECRET: SECRET, ALLOWLIST_EMAILS: 'bjljohnson2012@gmail.com' },
+    sendEmail: async () => ({ ok: true }),
+    distDir: '/tmp',
+  }), /exactly/);
 });
 
 test('a tampered cookie cannot see the plan', async () => {

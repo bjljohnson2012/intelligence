@@ -24,8 +24,23 @@ const GENERIC = { ok: true };
 const DUMMY_SALT = Buffer.alloc(16, 7);
 const DUMMY_HASH = scryptSync('000000', DUMMY_SALT, 32);
 
+export const ALLOWED_EMAILS = Object.freeze([
+  'bjljohnson2012@gmail.com',
+  'alexander.varden@gmail.com',
+]);
+
 function parseAllowlist(value) {
   return new Set(String(value || '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean));
+}
+
+function exactAllowlist(value) {
+  const allowlist = parseAllowlist(value);
+  const expected = new Set(ALLOWED_EMAILS);
+  const same = allowlist.size === expected.size && [...expected].every((email) => allowlist.has(email));
+  if (!same) {
+    throw new Error('ALLOWLIST_EMAILS must be exactly bjljohnson2012@gmail.com and alexander.varden@gmail.com');
+  }
+  return allowlist;
 }
 
 function normalizeEmail(value) {
@@ -111,7 +126,7 @@ function bump(buckets, key, windowMs, now) {
 export function createApp({ env, sendEmail, distDir, now = () => Date.now() }) {
   const secret = env.SESSION_SECRET || '';
   if (secret.length < 32) throw new Error('SESSION_SECRET must be at least 32 characters');
-  const allowlist = parseAllowlist(env.ALLOWLIST_EMAILS);
+  const allowlist = exactAllowlist(env.ALLOWLIST_EMAILS);
   const codes = new Map();
   const buckets = new Map();
   const lastSent = new Map();
@@ -157,15 +172,18 @@ export function createApp({ env, sendEmail, distDir, now = () => Date.now() }) {
         expiresAt: t + LIMITS.codeTtlMs,
         attempts: 0,
       });
+      let delivered = false;
       try {
-        await sendEmail({
+        const result = await sendEmail({
           to: email,
           code,
           idempotencyKey: `sign-in-code/${randomUUID()}`,
         });
-      } catch (err) {
-        console.error(`sign-in email failed for ${email}: ${err?.message || 'send failed'}`);
+        delivered = result == null || result.ok !== false;
+      } catch {
+        console.error('sign-in email failed');
       }
+      if (!delivered) codes.delete(email);
     }
     return res.status(200).json(GENERIC);
   });

@@ -33,7 +33,7 @@ tar xzf /tmp/intelligence-src.tgz -C "$DEST"
 rm -f /tmp/intelligence-src.tgz
 if [[ ! -f "$DEST/.env" ]]; then
   echo "Missing $DEST/.env"
-  echo "Copy $DEST/deploy/.env.example to $DEST/.env, then set SESSION_SECRET and RESEND_API_KEY. Leave AUTH_FROM_EMAIL as Intelligence <noreply@fieldschool.ai> until benjohnson.ai is verified in Resend."
+  echo "Copy $DEST/deploy/.env.example to $DEST/.env, then set SESSION_SECRET and RESEND_API_KEY. AUTH_FROM_EMAIL must stay ben@benjohnson.ai."
   exit 1
 fi
 chmod 600 "$DEST/.env"

@@ -2,18 +2,18 @@ import { Resend } from 'resend';
 
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 
+export const FROM_EMAIL = 'ben@benjohnson.ai';
+
 export function bareAddress(from) {
   const raw = String(from || '').trim();
   const wrapped = raw.match(/<([^>]+)>/);
   return (wrapped ? wrapped[1] : raw).trim();
 }
 
-/** Display name plus the mailbox in AUTH_FROM_EMAIL. The mailbox stays whatever env sets. */
+/** Canonical From header. Any other mailbox, including a lookalike, is refused. */
 export function formatFrom(addr) {
-  const email = bareAddress(addr);
-  if (!email) return '';
-  if (String(addr).includes('<')) return String(addr).trim();
-  return `2026 Market Plan <${email}>`;
+  if (bareAddress(addr).toLowerCase() !== FROM_EMAIL) return '';
+  return `2026 Market Plan <${FROM_EMAIL}>`;
 }
 
 function escapeHtml(value) {
@@ -54,16 +54,17 @@ function statusOf(error) {
  */
 export async function sendSignInCode({ apiKey, from, to, code, idempotencyKey, client, sleep }) {
   const pause = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-  if (!apiKey || !from) {
-    console.error('sign-in email not sent: RESEND_API_KEY or AUTH_FROM_EMAIL missing');
+  const fromHeader = formatFrom(from);
+  if (!apiKey || !fromHeader) {
+    console.error('sign-in email not sent: RESEND_API_KEY missing or AUTH_FROM_EMAIL is not ben@benjohnson.ai');
     return { ok: false };
   }
   const resend = client || new Resend(apiKey);
   const content = signInContent(code);
   const payload = {
-    from: formatFrom(from),
+    from: fromHeader,
     to: [to],
-    replyTo: bareAddress(from),
+    replyTo: FROM_EMAIL,
     subject: content.subject,
     html: content.html,
     text: content.text,
@@ -80,6 +81,6 @@ export async function sendSignInCode({ apiKey, from, to, code, idempotencyKey, c
     }
     if (attempt < 2) await pause(200 * (attempt + 1));
   }
-  console.error(`sign-in email failed for ${to}: ${lastMessage}`);
+  console.error(`sign-in email failed: ${lastMessage}`);
   return { ok: false };
 }
