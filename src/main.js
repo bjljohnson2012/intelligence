@@ -1,179 +1,339 @@
 import Chart from 'chart.js/auto';
-import { buildPlanIndex, presentHits } from './search.js';
+import { SEARCH_DEBOUNCE_MS, debounce, indexFromPack, searchPack } from './search.js';
 
-const screens = {
-  start: ['t-start'],
-  plain: ['t-plain'],
-  win: ['t-win'],
-  tam: ['t-tam'],
-  icp: ['t-icp'],
-  comp: ['t-comp'],
-  self: ['t-self'],
-  value: ['t-self'],
-  resid: ['t-resid'],
-  council: ['t-council'],
-  bets: ['t-bets'],
-  ask: ['t-ask'],
+const TYPE = {
+  kpi: 'KPI',
+  chart: 'Chart',
+  claim: 'Claim',
+  'table-row': 'Table',
+  open: 'Still open',
+  competitor: 'Competitor',
+  evidence: 'Evidence',
+  play: 'Play',
+  note: 'Note',
+  panel: 'Section',
+  section: 'Section',
 };
 
-const css = getComputedStyle(document.documentElement);
-const token = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
-const HEAD = token('--head', '#0F3E80');
-const ACCENT = token('--accent', token('--teal', '#0A5BCC'));
-const LB = token('--lb', '#B2E1F6');
-const ORANGE = token('--orange', '#FF6200');
-const INK = token('--ink', '#504A43');
-const MUTED = token('--muted', '#706B65');
-const FONT = token('--f-body', 'Red Hat Text, Helvetica Neue, Arial, sans-serif');
+const STATUS = {
+  fail: 'Not built',
+  partial: 'Partly there',
+  unknown: 'Explicit Unknown',
+  open: 'Still open',
+  hold: 'HOLD',
+  pass: 'Pass, still open',
+};
 
-let askPath = 'core';
-let palItems = [];
+const state = { path: 'core', section: 'start', item: '' };
+let pack = null;
+let byId = new Map();
+let searchIndex = [];
 let palIndex = 0;
-let glossary = {};
+let built = false;
+const charts = {};
 
 function esc(value) {
-  return String(value).replace(/[&<>"']/g, (ch) => ({
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[ch]));
 }
 
-function show(name, anchor) {
-  const key = screens[name] ? name : 'plain';
-  const ids = new Set(screens[key]);
-  document.querySelectorAll('section.tab').forEach((section) => {
-    section.hidden = !ids.has(section.id);
+function token(name, fallback) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
+function readUrl() {
+  const params = new URLSearchParams(location.search);
+  const path = ['core', 'enterprise', 'all'].includes(params.get('path')) ? params.get('path') : 'core';
+  const section = params.get('section') || 'start';
+  const item = params.get('item') || '';
+  return { path, section, item };
+}
+
+function urlFor(next) {
+  const params = new URLSearchParams();
+  params.set('path', next.path);
+  if (next.section && next.section !== 'start') params.set('section', next.section);
+  if (next.item) params.set('item', next.item);
+  return `/?${params.toString()}`;
+}
+
+function writeUrl(mode) {
+  const url = urlFor(state);
+  const current = `${location.pathname}${location.search}`;
+  if (current === url) {
+    history.replaceState(state, '', url);
+    return;
+  }
+  if (mode === 'push') history.pushState({ ...state }, '', url);
+  else history.replaceState({ ...state }, '', url);
+}
+
+function pathName(paths) {
+  const set = new Set(paths || []);
+  if (set.has('core') && set.has('enterprise')) return 'Both paths';
+  if (set.has('enterprise')) return 'Enterprise';
+  if (set.has('core')) return 'Core';
+  return 'Both paths';
+}
+
+function onPath(item) {
+  if (!item) return false;
+  return state.path === 'all' || (item.paths || []).includes(state.path);
+}
+
+function applyPath() {
+  document.body.dataset.path = state.path;
+  document.querySelectorAll('[data-paths]').forEach((el) => {
+    if (el.closest('[data-legacy]')) return;
+    const paths = el.dataset.paths.split(/\s+/).filter(Boolean);
+    const show = state.path === 'all' || paths.includes(state.path);
+    el.hidden = !show;
+    const host = el.tagName === 'TR' ? el.cells[0] : el;
+    if (!host) return;
+    let tag = host.querySelector(':scope > .pathtag');
+    if (state.path === 'all' && show && el.dataset.kind !== 'panel') {
+      if (!tag) {
+        tag = document.createElement('span');
+        tag.className = 'pathtag';
+        host.prepend(tag);
+      }
+      tag.textContent = pathName(paths);
+    } else if (tag) tag.remove();
   });
-  const want = anchor || '';
-  document.querySelectorAll('nav [data-t]').forEach((button) => {
-    const same = button.dataset.t === key && (button.dataset.anchor || '') === want;
+  document.querySelectorAll('.panel').forEach((panel) => {
+    if (panel.closest('[data-legacy]') || panel.hidden) return;
+    const kids = [...panel.querySelectorAll('[data-paths]')].filter((el) => el !== panel && el.dataset.kind !== 'panel' && !el.closest('[data-legacy]'));
+    if (!kids.length) return;
+    panel.hidden = !kids.some((el) => !el.hidden);
+  });
+  document.querySelectorAll('.cgrid, .ggrid, .wlgrid').forEach((grid) => {
+    const cards = [...grid.children].filter((el) => el.matches('[data-paths]'));
+    let empty = grid.nextElementSibling?.classList?.contains('empty-path') ? grid.nextElementSibling : null;
+    if (!empty) {
+      empty = document.createElement('p');
+      empty.className = 'empty-path note';
+      empty.textContent = 'Nothing in this set is on the path you are viewing.';
+      grid.after(empty);
+    }
+    empty.hidden = !cards.length || cards.some((el) => !el.hidden);
+  });
+  scopeNarrative();
+}
+
+function cell(rowName, index) {
+  const row = pack.compare.rows.find((entry) => entry[0] === rowName);
+  return row ? row[index + 1] : '';
+}
+
+function pathStory(path) {
+  const bandC = `Band C congregations ${cell('Congregations', 0)}; count ${cell('Count', 0)}; attendees ${cell('Attendees', 0)}.`;
+  const bandB = `Band B (1,000–1,999) congregations ${cell('Congregations', 1)}; count ${cell('Count', 1)}; attendees ${cell('Attendees', 1)}.`;
+  const bandA = `Band A (2,000+) congregations ${cell('Congregations', 2)}; count ${cell('Count', 2)}; attendees ${cell('Attendees', 2)}.`;
+  if (path === 'enterprise') {
+    return `${pack.hero.enterprise.lede} ${bandB} ${bandA} ${pack.compare.source}`;
+  }
+  return `${pack.hero.all.lede} ${bandC} ${bandB} ${bandA} ${pack.compare.source}`;
+}
+
+function coreOnlyStory(text) {
+  const value = text.toLowerCase();
+  const core = /band c|mid-size|250–999|250-999/.test(value);
+  const enterprise = /1,000|2,000|enterprise/.test(value);
+  return core && !enterprise;
+}
+
+function scopeNarrative() {
+  document.querySelectorAll('.lead, #t-start .panel p').forEach((node) => {
+    if (!node.dataset.packCopy) node.dataset.packCopy = node.innerHTML;
+    const original = node.dataset.packCopy.replace(/<[^>]+>/g, ' ');
+    const story = node.closest('#t-start') && /story so far/i.test(node.closest('.panel')?.innerText || '');
+    const lead = node.classList.contains('lead');
+    if (state.path === 'core' || !coreOnlyStory(original)) {
+      node.hidden = false;
+      if (node.innerHTML !== node.dataset.packCopy) node.innerHTML = node.dataset.packCopy;
+      return;
+    }
+    if (lead && node.closest('#t-start')) node.textContent = pack.hero[state.path].lede;
+    else if (story) node.textContent = pathStory(state.path);
+    else node.hidden = state.path === 'enterprise';
+  });
+  const steps = document.querySelector('#t-start .panel.exec .exhibit');
+  if (steps) {
+    let note = document.getElementById('pathSteps');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'pathSteps';
+      note.className = 'note';
+      steps.after(note);
+    }
+    const current = pack.paths[state.path];
+    note.textContent = `These steps are for ${current.label}: ${current.range}.`;
+  }
+}
+
+function renderHero() {
+  const hero = pack.hero[state.path];
+  const root = document.getElementById('hero');
+  const kpis = hero.kpiIds.map((id) => byId.get(id)).filter(Boolean);
+  const compare = state.path === 'all' ? renderCompare() : '';
+  root.innerHTML = `<section class="pathbanner" aria-live="polite"><div><p class="eyebrow">${esc(pathName(state.path === 'all' ? ['core', 'enterprise'] : [state.path]))}</p><h2>${esc(hero.title)}</h2><p>${esc(hero.lede)}</p><p class="note">Live Core stays HOLD. This site is planning only.</p></div><code class="urlchip">?path=${esc(state.path)}</code></section><div class="kpis">${kpis.map(kpiButton).join('')}</div>${compare}`;
+}
+
+function kpiButton(item) {
+  const value = item.status === 'unknown' || /explicit unknown/i.test(item.value)
+    ? `<span class="badge b-unk">Explicit Unknown</span>`
+    : item.status === 'hold' || item.value === 'HOLD'
+      ? `<span class="badge b-hold">HOLD</span>`
+      : esc(item.value);
+  return `<button type="button" class="kpi" data-item="${esc(item.id)}" data-kind="kpi" data-paths="${esc(item.paths.join(' '))}"><span class="pathtag">${esc(pathName(item.paths))}</span><div class="l">${esc(item.title)}</div><div class="v">${value}</div><div class="s">${esc(item.note)}</div></button>`;
+}
+
+function renderCompare() {
+  const columns = pack.compare.columns;
+  const bands = ['C 250', 'B 1,000', 'A 2,000'];
+  const body = pack.compare.rows.map((row) => {
+    const cells = row.slice(1).map((cell, index) => {
+      const source = pack.items.find((item) => item.kind === 'table-row' && item.text.includes(bands[index]));
+      const id = source ? source.id : '';
+      return `<td><button type="button" class="cellbtn" data-item="${esc(id)}">${esc(cell)}</button></td>`;
+    }).join('');
+    return `<tr><th>${esc(row[0])}</th>${cells}</tr>`;
+  }).join('');
+  const head = columns.map((col) => `<th>${esc(col)}</th>`).join('');
+  return `<div class="panel compare"><div class="exhibit">Side by side</div><h3>${esc(pack.compare.title)}</h3><p class="note">${esc(pack.compare.source)}</p><div class="tw"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+
+function renderNav() {
+  const nav = document.getElementById('nav');
+  const buttons = [];
+  pack.sections.forEach((section) => {
+    buttons.push({ id: section.id, label: section.label, anchor: '' });
+    if (section.id === 'comp') buttons.push({ id: 'comp', label: 'Evidence', anchor: 'evidence' });
+    if (section.id === 'self') buttons.push({ id: 'self', label: 'Value', anchor: 'ex17' });
+  });
+  nav.innerHTML = buttons.map((button) => `<button type="button" role="tab" data-section="${esc(button.id)}" data-anchor="${esc(button.anchor)}" aria-selected="false">${esc(button.label)}</button>`).join('');
+}
+
+function renderSections() {
+  const root = document.getElementById('sections');
+  root.innerHTML = pack.sections.map((section) => `<section class="tab" id="t-${esc(section.id)}" data-screen="${esc(section.id)}" hidden>${section.html}</section>`).join('');
+  const ask = document.querySelector('[data-screen="ask"]');
+  if (ask) {
+    const lead = ask.querySelector('.lead')?.textContent || 'Answers come only from this plan.';
+    ask.innerHTML = `<h2>Ask the plan</h2><p class="lead">${esc(lead)}</p><div class="panel askpanel"><p class="railtype">Asking about: <b id="askPathLabel"></b></p><div class="chips" id="askChips"></div><form id="askForm"><textarea id="askIn" rows="3" placeholder="Ask a question about this plan" aria-label="Ask a question about this plan"></textarea><button type="submit">Ask</button></form><div id="askState" class="askstate" hidden></div><div id="askOut" class="askout"></div></div>`;
+  }
+  document.getElementById('mixChart')?.closest('.chartbox')?.setAttribute('data-item', 'chart-attendance');
+  document.getElementById('valChart')?.closest('.chartbox')?.setAttribute('data-item', 'chart-values');
+  document.getElementById('resChart')?.closest('.chartbox')?.setAttribute('data-item', 'chart-open');
+}
+
+function showSection() {
+  const known = new Set(pack.sections.map((section) => section.id));
+  if (!known.has(state.section)) state.section = 'start';
+  document.querySelectorAll('section.tab').forEach((section) => {
+    section.hidden = section.dataset.screen !== state.section;
+  });
+  document.querySelectorAll('#nav [data-section]').forEach((button) => {
+    const same = button.dataset.section === state.section && !button.dataset.anchor;
     button.setAttribute('aria-selected', same ? 'true' : 'false');
   });
-  const target = anchor ? document.getElementById(anchor) : null;
-  if (target) target.scrollIntoView({ block: 'start' });
-  else window.scrollTo(0, 0);
-  history.replaceState(null, '', `#${key}${anchor ? `-${anchor}` : ''}`);
-  if (ids.has('t-comp')) wakeEvidence();
-}
-
-function paintPath() {
-  document.querySelectorAll('.pathcard').forEach((card) => {
-    card.classList.toggle('on', card.dataset.setpath === document.body.dataset.path);
-  });
+  document.documentElement.dataset.path = state.path;
+  document.body.dataset.screen = state.section;
   document.querySelectorAll('.pathswitch button').forEach((button) => {
-    button.setAttribute('aria-pressed', button.dataset.path === document.body.dataset.path ? 'true' : 'false');
+    button.setAttribute('aria-pressed', button.dataset.path === state.path ? 'true' : 'false');
   });
+  const label = document.getElementById('askPathLabel');
+  if (label) label.textContent = pack.paths[state.path].label;
+  const chips = document.getElementById('askChips');
+  if (chips) {
+    chips.innerHTML = (pack.askPrompts[state.path] || []).map((prompt) => `<button type="button" data-ask="${esc(prompt)}">${esc(prompt)}</button>`).join('');
+  }
+  requestAnimationFrame(() => Object.values(charts).forEach((chart) => chart.resize()));
 }
 
-function setPath(path) {
-  document.body.dataset.path = path === 'enterprise' ? 'enterprise' : 'core';
-  askPath = document.body.dataset.path === 'enterprise' ? 'enterprise' : 'core';
-  document.querySelectorAll('#askPath button').forEach((button) => {
-    button.classList.toggle('on', button.dataset.askpath === askPath);
-  });
-  paintPath();
+function fillRail(id) {
+  const item = byId.get(id);
+  const rail = document.getElementById('rail');
+  if (!item) {
+    rail.hidden = true;
+    document.body.classList.remove('rail-open');
+    return;
+  }
+  const section = pack.sections.find((entry) => entry.id === item.section);
+  document.getElementById('rail-crumb').textContent = section ? section.label : 'Plan';
+  document.getElementById('rail-type').textContent = '';
+  document.getElementById('rail-title').textContent = `${item.title} · ${TYPE[item.kind] || 'Detail'} / ${pathName(item.paths)}`;
+  const status = STATUS[item.status] || '';
+  const blocked = ['fail', 'partial', 'unknown', 'open', 'hold'].includes(item.status);
+  const shot = document.querySelector(`[data-item="${CSS.escape(id)}"] img`);
+  const sources = chartSources(item);
+  document.getElementById('rail-body').innerHTML = `
+    ${item.value ? `<p class="railvalue">${esc(item.value)}</p>` : ''}
+    ${item.note ? `<p>${esc(item.note)}</p>` : ''}
+    <p>${esc(item.text)}</p>
+    ${shot ? `<img class="railshot" src="${esc(shot.getAttribute('src'))}" alt="${esc(shot.alt)}">` : ''}
+    <h3>Status</h3>
+    <p>${status ? esc(status) : 'Shown as the pack states it.'}${blocked ? ' Not proven.' : ''}</p>
+    ${item.confidence ? `<h3>Confidence</h3><p>${esc(item.confidence)}</p>` : ''}
+    <h3>Sources</h3>
+    <ul class="raillist">${(item.sources.length ? item.sources : sources).map((source) => `<li>${sourceLink(source)}</li>`).join('') || '<li>2026 Market Intelligence pack</li>'}</ul>
+    <h3>Related</h3>
+    <div class="raillinks">${item.related.map((related) => byId.get(related)).filter(Boolean).map((related) => `<button type="button" data-item="${esc(related.id)}">${esc(related.badge || TYPE[related.kind])} · ${esc(related.title)}</button>`).join('') || '<p class="note">No related item is named in this text.</p>'}</div>`;
+  rail.hidden = false;
+  document.body.classList.add('rail-open');
 }
 
-const SECTION_GO = {
-  't-start': 'start',
-  't-plain': 'plain',
-  't-win': 'win',
-  't-tam': 'tam',
-  't-icp': 'icp',
-  't-comp': 'comp',
-  't-self': 'self',
-  't-resid': 'resid',
-  't-council': 'council',
-  't-bets': 'bets',
-  't-ask': 'ask',
-};
-
-function domRecords() {
-  const headings = [...document.querySelectorAll('[data-pal-label]')].map((el) => {
-    const section = el.closest('section.tab');
-    return {
-      label: el.getAttribute('data-pal-label') || '',
-      go: SECTION_GO[section?.id] || 'start',
-      anchor: el.closest('#evidence') ? 'evidence' : '',
-      text: (el.textContent || '').trim(),
-    };
-  });
-  const evidence = [...document.querySelectorAll('#evidence .gitem, .shot')].map((el) => ({
-    label: el.dataset.caption || el.querySelector('figcaption')?.textContent || el.querySelector('img')?.alt || '',
-    rival: el.dataset.rival || '',
-    text: `${el.dataset.caption || ''} ${el.dataset.meta || ''} ${el.querySelector('img')?.alt || ''}`,
-  }));
-  return { headings, evidence };
+function chartSources(item) {
+  if (item.id === 'chart-attendance') return pack.charts.attendance.sources || [];
+  if (item.id === 'chart-values') return [pack.charts.values.source];
+  return [];
 }
 
-async function loadSearch() {
-  let residuals = [];
-  let rivals = [];
-  try {
-    const [resData, rivalData] = await Promise.all([
-      fetch('/data/residuals.json').then((r) => r.json()),
-      fetch('/data/competitors.json').then((r) => r.json()),
-    ]);
-    residuals = resData.items || [];
-    rivals = rivalData.rivals || [];
-  } catch { /* canonical index still searches */ }
-  try { glossary = await fetch('/data/glossary.json').then((r) => r.json()); } catch { glossary = {}; }
-  const dom = domRecords();
-  palItems = buildPlanIndex({ headings: dom.headings, evidence: dom.evidence, residuals, rivals });
+function sourceLink(source) {
+  const text = String(source);
+  if (/^https?:\/\//.test(text)) return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>`;
+  return esc(text);
 }
 
-function filteredPalette(query) {
-  return presentHits(palItems, query, query ? 20 : 16);
+function closeRail() {
+  document.getElementById('rail').hidden = true;
+  document.body.classList.remove('rail-open');
+}
+
+function paletteHits() {
+  const query = document.getElementById('q')?.value.trim() || '';
+  return searchPack(searchIndex, query, state.path, 20);
 }
 
 function renderPalette() {
-  const hits = filteredPalette(document.getElementById('q').value.trim());
-  const listEl = document.getElementById('palList');
+  const hits = paletteHits();
+  const list = document.getElementById('palList');
   if (!hits.length) {
-    listEl.innerHTML = '<p class="palempty">No matches in the plan.</p>';
+    list.innerHTML = '<p class="palempty">No matches in the plan.</p>';
     palIndex = 0;
     return;
   }
   palIndex = Math.min(palIndex, hits.length - 1);
   let group = '';
-  listEl.innerHTML = hits.map((hit, index) => {
+  list.innerHTML = hits.map((hit, index) => {
     const head = hit.group !== group ? `<div class="palgroup">${esc(hit.group)}</div>` : '';
     group = hit.group;
     const badge = hit.badge ? `<span class="badge b-unk">${esc(hit.badge)}</span>` : '';
-    return `${head}<button type="button" class="palhit${index === palIndex ? ' on' : ''}" data-i="${index}"><span>${esc(hit.label)}</span>${badge}</button>`;
+    const query = document.getElementById('q')?.value.trim() || '';
+    return `${head}<button type="button" class="palhit${index === palIndex ? ' on' : ''}" data-i="${index}"><span class="palmain"><b>${markText(hit.label, query)}</b><small>${markText(hit.snippet || '', query)}</small></span><span class="pathtag">${esc(hit.pathLabel)}</span>${badge}</button>`;
   }).join('');
-  listEl.querySelectorAll('.palhit').forEach((button) => {
-    button.onclick = () => openHit(hits[Number(button.dataset.i)]);
+}
+
+function markText(text, query) {
+  let html = esc(text);
+  const tokens = [...new Set(query.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 1))];
+  tokens.sort((a, b) => b.length - a.length);
+  tokens.forEach((token) => {
+    const pattern = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    html = html.replace(new RegExp(`(${pattern})`, 'ig'), '<mark class="hitmark">$1</mark>');
   });
-}
-
-function closePalette() {
-  const palette = document.getElementById('palette');
-  const list = document.getElementById('palList');
-  const input = document.getElementById('q');
-  if (list) list.replaceChildren();
-  if (input) input.value = '';
-  if (palette?.open) palette.close();
-}
-
-function openHit(hit) {
-  closePalette();
-  if (hit.rival) {
-    const buttons = [...document.querySelectorAll('#rivalFil button')];
-    const match = buttons.find((button) => button.dataset.rival === hit.rival);
-    if (match) {
-      buttons.forEach((button) => button.setAttribute('aria-pressed', button === match ? 'true' : 'false'));
-      applyGallery();
-    }
-  }
-  show(hit.go, hit.anchor);
-}
-
-function wakeEvidence() {
-  document.querySelectorAll('#evidence img').forEach((img) => {
-    img.loading = 'eager';
-    const src = img.getAttribute('src');
-    if (src && !img.complete) img.src = src;
-  });
+  return html;
 }
 
 function openPalette() {
@@ -186,21 +346,325 @@ function openPalette() {
   renderPalette();
 }
 
-function applyGallery() {
-  const rival = document.querySelector('#rivalFil button[aria-pressed="true"]')?.dataset.rival || 'all';
-  const kind = document.querySelector('#kindFil button[aria-pressed="true"]')?.dataset.kind || 'all';
-  let shown = 0;
-  document.querySelectorAll('#evidence .gitem').forEach((item) => {
-    const ok = (rival === 'all' || item.dataset.rival === rival) && (kind === 'all' || item.dataset.kind === kind);
-    item.hidden = !ok;
-    if (ok) shown += 1;
-  });
-  const count = document.getElementById('gcount');
-  if (count) count.textContent = `${shown} screenshots`;
+function closePalette() {
+  const palette = document.getElementById('palette');
+  document.getElementById('palList').replaceChildren();
+  document.getElementById('q').value = '';
+  if (palette.open) palette.close();
 }
 
-function openLightbox(item) {
+function go(next, mode) {
+  if (next.path) state.path = next.path;
+  if (next.section) state.section = next.section;
+  if ('item' in next) state.item = next.item;
+  if (state.item && state.path !== 'all') {
+    const item = byId.get(state.item);
+    if (item && !item.paths.includes(state.path)) state.item = '';
+  }
+  applyPath();
+  filterGallery();
+  renderHero();
+  showSection();
+  updateCharts();
+  if (state.item) fillRail(state.item);
+  else closeRail();
+  writeUrl(mode);
+  if (next.anchor) document.getElementById(next.anchor)?.scrollIntoView({ block: 'start' });
+}
+
+function openHit(hit) {
+  closePalette();
+  if (!hit.itemId || hit.kind === 'section' || !byId.has(hit.itemId)) {
+    go({ section: hit.go, item: '', anchor: hit.anchor }, 'push');
+    return;
+  }
+  const item = byId.get(hit.itemId);
+  const path = state.path !== 'all' && !item.paths.includes(state.path) ? item.paths[0] : state.path;
+  go({ path, item: item.id }, 'push');
+}
+
+function bandData(pathName) {
+  const labels = pack.charts.attendance.paths[pathName];
+  return pack.charts.attendance.bands.filter((band) => labels.includes(band.label));
+}
+
+function updateCharts() {
+  Chart.defaults.font.family = token('--f-body', 'Red Hat Text, Helvetica Neue, Arial, sans-serif');
+  Chart.defaults.color = token('--ink', '#504A43');
+  const head = token('--head', '#0F3E80');
+  const accent = token('--accent', '#0A5BCC');
+  const lb = token('--lb', '#B2E1F6');
+  const orange = token('--orange', '#FF6200');
+  const bands = bandData(state.path);
+  const mix = document.getElementById('mixChart');
+  const mixNote = document.getElementById('mixnote');
+  if (mixNote) mixNote.textContent = pack.charts.attendance.note;
+  if (mix) {
+    const data = {
+      labels: bands.map((band) => band.label),
+      datasets: [
+        { label: 'Congregations %', data: bands.map((band) => band.congregationsPct), backgroundColor: accent, borderRadius: 4 },
+        { label: 'Attendees %', data: bands.map((band) => band.attendeesPct), backgroundColor: lb, borderRadius: 4 },
+      ],
+    };
+    if (!charts.mix) {
+      charts.mix = new Chart(mix, {
+        type: 'bar',
+        data,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: { tooltip: { callbacks: { label: (ctx) => tip(ctx, bands) } } },
+          scales: { x: { ticks: { callback: (value) => `${value}%` } } },
+        },
+      });
+    } else {
+      charts.mix.data = data;
+      charts.mix.update();
+    }
+  }
+  const values = document.getElementById('valChart');
+  const box = values?.closest('.chartbox');
+  let unknown = document.getElementById('valUnknown');
+  if (box && !unknown) {
+    unknown = document.createElement('p');
+    unknown.id = 'valUnknown';
+    unknown.className = 'note';
+    box.after(unknown);
+  }
+  const hideValues = state.path === 'enterprise';
+  if (values) values.closest('.chartbox').hidden = hideValues;
+  if (unknown) {
+    unknown.hidden = !hideValues;
+    unknown.textContent = pack.charts.values.enterpriseUnknown;
+  }
+  if (values && !hideValues) {
+    const rows = pack.charts.values.items;
+    const data = {
+      labels: rows.map((row) => row[0]),
+      datasets: [{ data: rows.map((row) => row[1]), backgroundColor: rows.map((row) => (row[1] ? accent : orange)), borderRadius: 4 }],
+    };
+    if (!charts.values) {
+      charts.values = new Chart(values, {
+        type: 'bar',
+        data,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: { x: { max: 100, ticks: { callback: (value) => `${value}%` } } },
+        },
+      });
+    } else {
+      charts.values.data = data;
+      charts.values.update();
+    }
+  }
+  const opens = pack.items.filter((item) => item.kind === 'open' && (state.path === 'all' || item.paths.includes(state.path)));
+  const counts = {};
+  opens.forEach((item) => { counts[item.status || 'open'] = (counts[item.status || 'open'] || 0) + 1; });
+  const res = document.getElementById('resChart');
+  if (res) {
+    const keys = Object.keys(counts);
+    const data = {
+      labels: keys.map((key) => STATUS[key] || key),
+      datasets: [{ data: keys.map((key) => counts[key]), backgroundColor: keys.map((key) => ({ fail: '#000', partial: lb, unknown: '#706B65', open: orange, hold: orange, pass: head }[key] || head)) }],
+    };
+    if (!charts.open) {
+      charts.open = new Chart(res, { type: 'doughnut', data, options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom' } } } });
+    } else {
+      charts.open.data = data;
+      charts.open.update();
+    }
+  }
+}
+
+function tip(ctx, bands) {
+  const band = bands[ctx.dataIndex];
+  if (!band) return '';
+  if (ctx.datasetIndex === 1 && (band.attendeesPct === null || band.attendeesPct === undefined)) {
+    return `${band.label}: attendees ${band.attendeesRange || 'Explicit Unknown'}`;
+  }
+  const range = ctx.datasetIndex === 0 ? band.congregationsRange : band.attendeesRange;
+  const suffix = range ? ` (published range ${range})` : '';
+  return `${ctx.dataset.label}: ${ctx.parsed.x}%${suffix}`;
+}
+
+function askNode(className, text) {
+  const node = document.createElement('div');
+  node.className = className;
+  node.textContent = text;
+  return node;
+}
+
+async function ask(question) {
+  const out = document.getElementById('askOut');
+  const form = document.getElementById('askState');
+  out.prepend(askNode('q', question));
+  form.hidden = false;
+  form.className = 'askstate loading';
+  form.textContent = 'Reading the plan…';
+  try {
+    const response = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, pathHint: state.path === 'all' ? 'either' : state.path }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data) {
+      form.className = 'askstate error';
+      form.innerHTML = `<p>Couldn't answer — try again.</p><button type="button" id="askRetry">Retry</button>`;
+      document.getElementById('askRetry').onclick = () => ask(question);
+      return;
+    }
+    form.hidden = true;
+    const block = document.createElement('div');
+    block.className = data.status === 'answered' ? 'a' : 'a unknown';
+    const cites = (data.citations || []).filter((cite) => cite.itemId && byId.has(cite.itemId)).map((cite, index) => `<button type="button" data-item="${esc(cite.itemId)}">${index + 1}. ${esc(cite.label || cite.id)}</button>`).join(' ');
+    block.innerHTML = `<p>${esc(data.answer || data.unknownReason || 'The plan does not say.')}</p><p class="note">${esc(data.status === 'explicit_unknown' ? 'Explicit Unknown' : data.status === 'refused' ? 'Not a launch clearance' : 'From the plan')}</p><div class="raillinks">${cites}</div>`;
+    out.insertBefore(block, out.children[1] || null);
+  } catch {
+    form.className = 'askstate error';
+    form.innerHTML = `<p>Couldn't answer — try again.</p><button type="button" id="askRetry">Retry</button>`;
+    document.getElementById('askRetry').onclick = () => ask(question);
+  }
+}
+
+function bootError() {
+  const boot = document.getElementById('boot');
+  boot.hidden = false;
+  boot.innerHTML = 'The plan could not be loaded. <button type="button" id="bootRetry">Retry</button>';
+  document.getElementById('bootRetry').onclick = () => { boot.textContent = 'Reading the plan…'; start(); };
+}
+
+async function start() {
+  const boot = document.getElementById('boot');
+  try {
+    const response = await fetch('/data/pack.json');
+    if (!response.ok) throw new Error('pack');
+    pack = await response.json();
+  } catch {
+    bootError();
+    return;
+  }
+  byId = new Map(pack.items.map((item) => [item.id, item]));
+  searchIndex = indexFromPack(pack);
+  boot.hidden = true;
+  renderNav();
+  renderSections();
+  built = true;
+  const initial = readUrl();
+  state.path = initial.path;
+  state.section = initial.section;
+  state.item = initial.item;
+  go({}, 'replace');
+}
+
+const queueSearch = debounce(() => { palIndex = 0; renderPalette(); }, SEARCH_DEBOUNCE_MS);
+
+document.getElementById('openSearch').addEventListener('click', openPalette);
+document.getElementById('q').addEventListener('input', queueSearch);
+document.getElementById('q').addEventListener('keydown', (event) => {
+  const hits = paletteHits();
+  if (event.key === 'ArrowDown') { event.preventDefault(); palIndex = Math.min(palIndex + 1, Math.max(hits.length - 1, 0)); renderPalette(); }
+  if (event.key === 'ArrowUp') { event.preventDefault(); palIndex = Math.max(palIndex - 1, 0); renderPalette(); }
+  if (event.key === 'Enter') { event.preventDefault(); if (hits[palIndex]) openHit(hits[palIndex]); }
+});
+document.addEventListener('keydown', (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openPalette(); }
+  if (event.key === 'Enter' && !event.shiftKey && event.target?.id === 'askIn') {
+    event.preventDefault();
+    document.getElementById('askForm')?.requestSubmit();
+  }
+  if (event.key === 'Escape') {
+    if (document.getElementById('palette').open) closePalette();
+    else if (state.item) go({ item: '' }, 'push');
+  }
+});
+document.getElementById('palette').addEventListener('click', (event) => {
+  const hit = event.target.closest('.palhit');
+  if (hit) openHit(paletteHits()[Number(hit.dataset.i)]);
+  else if (event.target.id === 'palette') closePalette();
+});
+document.getElementById('signout').addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  location.href = '/login';
+});
+document.getElementById('rail-close').addEventListener('click', () => go({ item: '' }, 'replace'));
+document.getElementById('rail-back').addEventListener('click', () => history.back());
+document.getElementById('rail-crumb').addEventListener('click', () => go({ item: '' }, 'push'));
+document.addEventListener('click', (event) => {
+  const path = event.target.closest('.pathswitch [data-path]');
+  const section = event.target.closest('#nav [data-section]');
+  const item = event.target.closest('[data-item]');
+  const askPrompt = event.target.closest('[data-ask]');
+  const rival = event.target.closest('#rivalFil button');
+  const kind = event.target.closest('#kindFil button');
+  const shot = event.target.closest('#evidence .gitem');
+  const jump = event.target.closest('[data-go]');
+  if (path) { go({ path: path.dataset.path, item: '' }, 'push'); return; }
+  if (section) { go({ section: section.dataset.section, item: '', anchor: section.dataset.anchor }, 'push'); return; }
+  if (jump?.dataset.go) {
+    go({ section: jump.dataset.go, item: '' }, 'push');
+    document.getElementById(`t-${jump.dataset.go}`)?.scrollIntoView({ block: 'start' });
+    return;
+  }
+  if (rival) {
+    document.querySelectorAll('#rivalFil button').forEach((button) => button.setAttribute('aria-pressed', button === rival ? 'true' : 'false'));
+    filterGallery();
+    return;
+  }
+  if (kind) {
+    document.querySelectorAll('#kindFil button').forEach((button) => button.setAttribute('aria-pressed', button === kind ? 'true' : 'false'));
+    filterGallery();
+    return;
+  }
+  if (askPrompt) { ask(askPrompt.dataset.ask); return; }
+  if (item?.dataset.item && !event.target.closest('#palette')) {
+    if (shot && event.target.closest('img')) openShot(shot);
+    go({ item: item.dataset.item }, 'push');
+  }
+});
+document.getElementById('stage').addEventListener('submit', (event) => {
+  if (event.target.id !== 'askForm') return;
+  event.preventDefault();
+  const input = document.getElementById('askIn');
+  const question = input.value.trim();
+  if (!question) return;
+  input.value = '';
+  ask(question);
+});
+window.addEventListener('popstate', () => {
+  const next = readUrl();
+  state.path = next.path;
+  state.section = next.section;
+  state.item = next.item;
+  if (!built) return;
+  applyPath();
+  filterGallery();
+  renderHero();
+  showSection();
+  updateCharts();
+  if (state.item) fillRail(state.item);
+  else closeRail();
+});
+
+function filterGallery() {
+  const rival = document.querySelector('#rivalFil button[aria-pressed="true"]')?.dataset.rival || 'all';
+  const kind = document.querySelector('#kindFil button[aria-pressed="true"]')?.dataset.kind || 'all';
+  document.querySelectorAll('#evidence .gitem').forEach((item) => {
+    const paths = (item.dataset.paths || '').split(/\s+/);
+    const pathOk = state.path === 'all' || paths.includes(state.path);
+    const match = (rival === 'all' || item.dataset.rival === rival) && (kind === 'all' || item.dataset.kind === kind);
+    item.hidden = !(pathOk && match);
+  });
+}
+
+function openShot(item) {
   const img = item.querySelector('img');
+  if (!img) return;
   document.getElementById('lbImg').src = img.src;
   document.getElementById('lbImg').alt = img.alt;
   document.getElementById('lbCap').textContent = item.dataset.caption || img.alt;
@@ -208,203 +672,14 @@ function openLightbox(item) {
   document.getElementById('lightbox').showModal();
 }
 
-function bootCharts() {
-  Chart.defaults.font.family = FONT;
-  Chart.defaults.color = INK;
-  const common = { responsive: true, maintainAspectRatio: false };
-  fetch('/data/attendance-mix.json').then((r) => r.json()).then((data) => {
-    const note = document.getElementById('mixnote');
-    const refresh = document.getElementById('mixrefresh');
-    if (note) note.textContent = data.note;
-    if (refresh) refresh.textContent = `Data refresh: ${data.refresh}`;
-    const canvas = document.getElementById('mixChart');
-    if (!canvas) return;
-    const mk = (field) => ({
-      labels: data.bands.map((band) => band.label),
-      datasets: [{ data: data.bands.map((band) => band[field]), backgroundColor: [LB, ACCENT, HEAD, ORANGE], borderRadius: 4 }],
-    });
-    const chart = new Chart(canvas, {
-      type: 'bar',
-      data: mk('congregationsPct'),
-      options: {
-        ...common,
-        indexAxis: 'y',
-        plugins: { legend: { display: false } },
-        scales: { x: { ticks: { callback: (value) => `${value}%` } } },
-      },
-    });
-    document.querySelectorAll('#mixToggle button').forEach((button) => {
-      button.onclick = () => {
-        chart.data = mk(button.dataset.mix);
-        chart.update();
-        document.querySelectorAll('#mixToggle button').forEach((other) => other.classList.toggle('on', other === button));
-      };
-    });
-  });
-  fetch('/data/buyer-values.json').then((r) => r.json()).then((data) => {
-    const refresh = document.getElementById('valrefresh');
-    if (refresh) refresh.textContent = `Data refresh: ${data.refresh} Source: ${data.source}`;
-    const canvas = document.getElementById('valChart');
-    if (!canvas) return;
-    new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: data.items.map((item) => item[0]),
-        datasets: [{ data: data.items.map((item) => item[1]), backgroundColor: data.items.map((item) => (item[1] ? ACCENT : ORANGE)), borderRadius: 4 }],
-      },
-      options: { ...common, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { max: 100, ticks: { callback: (value) => `${value}%` } } } },
-    });
-  });
-  fetch('/data/residuals.json').then((r) => r.json()).then((data) => {
-    const refresh = document.getElementById('resrefresh');
-    if (refresh) refresh.textContent = `Data refresh: ${data.refresh}`;
-    const chips = document.getElementById('resChips');
-    if (chips) {
-      chips.innerHTML = data.items.map((item) => `<button type="button" data-go="resid">${esc(item.id)}</button>`).join('');
-    }
-    const canvas = document.getElementById('resChart');
-    if (!canvas) return;
-    const labels = { fail: 'Not built', partial: 'Partly there', unknown: 'Unknown', open: 'Waiting on a decision' };
-    const colors = { fail: '#000000', partial: LB, unknown: MUTED, open: ORANGE };
-    const counts = {};
-    data.items.forEach((item) => { counts[item.state] = (counts[item.state] || 0) + 1; });
-    new Chart(canvas, {
-      type: 'doughnut',
-      data: {
-        labels: Object.keys(counts).map((key) => labels[key] || key),
-        datasets: [{ data: Object.values(counts), backgroundColor: Object.keys(counts).map((key) => colors[key] || HEAD) }],
-      },
-      options: { ...common, cutout: '62%', plugins: { legend: { position: 'bottom' } } },
-    });
-  });
-}
-
-async function ask(question) {
-  const out = document.getElementById('askOut');
-  out.prepend(Object.assign(document.createElement('div'), { className: 'q', textContent: question }));
-  const answer = document.createElement('div');
-  answer.className = 'a';
-  answer.textContent = 'Thinking…';
-  out.insertBefore(answer, out.children[1] || null);
-  const hint = document.body.dataset.path === 'enterprise' ? 'enterprise' : 'core';
-  try {
-    const response = await fetch('/api/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, pathHint: askPath === 'either' ? 'either' : hint, sessionId: 'plan' }),
-    });
-    if (response.ok) {
-      const data = await response.json();
-      if (data.answer) {
-        answer.textContent = data.answer;
-        return;
-      }
-    }
-  } catch { /* stub */ }
-  const hits = presentHits(palItems, question, 3).map((item) => ({ item }));
-  answer.innerHTML = hits.length
-    ? `Answers from the plan are not switched on yet. Closest sections: ${hits.map((hit) => `<button type="button" data-go="${hit.item.go}">${esc(hit.item.label)}</button>`).join(' ')}`
-    : 'Unknown. The research does not cover that yet.';
-}
-
-document.getElementById('signout')?.addEventListener('click', async () => {
-  await fetch('/api/auth/logout', { method: 'POST' });
-  location.href = '/login';
-});
-
-document.querySelectorAll('nav [data-t]').forEach((button) => {
-  button.onclick = () => show(button.dataset.t, button.dataset.anchor || (button.dataset.t === 'value' ? 'ex17' : ''));
-});
-document.querySelectorAll('.pathswitch button').forEach((button) => {
-  button.onclick = () => setPath(button.dataset.path);
-});
-document.getElementById('openSearch')?.addEventListener('click', openPalette);
-document.getElementById('q')?.addEventListener('input', () => { palIndex = 0; renderPalette(); });
-document.getElementById('q')?.addEventListener('keydown', (event) => {
-  const hits = filteredPalette(event.target.value.trim());
-  if (event.key === 'ArrowDown') { event.preventDefault(); palIndex = Math.min(palIndex + 1, Math.max(hits.length - 1, 0)); renderPalette(); }
-  if (event.key === 'ArrowUp') { event.preventDefault(); palIndex = Math.max(palIndex - 1, 0); renderPalette(); }
-  if (event.key === 'Enter') { event.preventDefault(); if (hits[palIndex]) openHit(hits[palIndex]); }
-});
-document.addEventListener('keydown', (event) => {
-  const meta = event.metaKey || event.ctrlKey;
-  if (meta && event.key.toLowerCase() === 'k') { event.preventDefault(); openPalette(); }
-  if (event.key === 'Escape') closePalette();
-});
-document.getElementById('palette')?.addEventListener('click', (event) => {
-  if (event.target.id === 'palette') closePalette();
-});
-document.getElementById('palette')?.addEventListener('close', () => {
-  document.getElementById('palList')?.replaceChildren();
-});
-
-document.addEventListener('click', (event) => {
-  const path = event.target.closest('[data-setpath]');
-  const go = event.target.closest('[data-go]');
-  const dialog = event.target.closest('[data-dlg]');
-  const close = event.target.closest('.x, [data-close]');
-  const term = event.target.closest('.term');
-  const item = event.target.closest('#evidence .gitem, .shot');
-  const rival = event.target.closest('#rivalFil button');
-  const kind = event.target.closest('#kindFil button');
-  const askPathButton = event.target.closest('#askPath button');
-  if (close) { close.closest('dialog')?.close(); return; }
-  if (path) { setPath(path.dataset.setpath); return; }
-  if (rival) {
-    document.querySelectorAll('#rivalFil button').forEach((button) => button.setAttribute('aria-pressed', button === rival ? 'true' : 'false'));
-    applyGallery();
-    return;
-  }
-  if (kind) {
-    document.querySelectorAll('#kindFil button').forEach((button) => button.setAttribute('aria-pressed', button === kind ? 'true' : 'false'));
-    applyGallery();
-    return;
-  }
-  if (askPathButton) {
-    askPath = askPathButton.dataset.askpath;
-    document.querySelectorAll('#askPath button').forEach((button) => button.classList.toggle('on', button === askPathButton));
-    return;
-  }
-  if (dialog) {
-    document.querySelectorAll('dialog[open]').forEach((node) => node.close());
-    document.getElementById(dialog.dataset.dlg)?.showModal();
-    return;
-  }
-  if (term) {
-    const key = term.dataset.g;
-    document.getElementById('gt').textContent = key;
-    document.getElementById('gd').textContent = glossary[key] || '';
-    document.getElementById('gdlg')?.showModal();
-    return;
-  }
-  if (item && event.target.closest('img, figcaption, .gitem')) {
-    if (item.classList.contains('gitem')) openLightbox(item);
-    else item.classList.toggle('big');
-    return;
-  }
-  if (go && !event.target.closest('dialog')) show(go.dataset.go);
-  if (event.target.tagName === 'DIALOG') event.target.close();
-});
-
-document.getElementById('askForm')?.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const input = document.getElementById('askIn');
-  if (input.value.trim()) ask(input.value.trim());
-  input.value = '';
-});
-document.querySelectorAll('#askChips button').forEach((button) => {
-  button.onclick = () => ask(button.textContent);
+document.body.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return;
+  if (target.tagName === 'DIALOG') target.close();
+  if (target.closest('[data-close], dialog .x')) target.closest('dialog')?.close();
 });
 
 const kbd = document.getElementById('kbd');
-if (kbd && !/Mac|iPhone|iPad/.test(navigator.platform)) kbd.textContent = 'Ctrl K';
+if (kbd && !/Mac|iPhone|iPad/.test(navigator.platform || '')) kbd.textContent = 'Ctrl K';
 
-setPath('core');
-loadSearch();
-bootCharts();
-applyGallery();
-const hash = location.hash.replace('#', '');
-if (hash) {
-  const [name, anchor] = hash.split('-');
-  show(name, anchor || (name === 'value' ? 'ex17' : ''));
-} else show('start');
+start();

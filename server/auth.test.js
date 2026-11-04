@@ -182,8 +182,10 @@ test('a valid code sets a session cookie and opens the plan', async () => {
       body: JSON.stringify({ question: 'hello' }),
     });
     assert.equal(ask.res.status, 401);
-    assert.equal(authedAsk.status, 401);
-    assert.deepEqual(await authedAsk.json(), { status: 'refused', unknownReason: 'Sign-in required' });
+    assert.equal(authedAsk.status, 200);
+    const authedBody = await authedAsk.json();
+    assert.equal(authedBody.status, 'explicit_unknown');
+    assert.ok(Array.isArray(authedBody.citations));
 
     const back = await fetch(app.base + '/login', { headers: { cookie: jar }, redirect: 'manual' });
     assert.equal(back.status, 302);

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import { answerQuestion } from './ask.js';
 
 const loginPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'login.html');
 const loginPage = () => readFileSync(loginPath, 'utf8');
@@ -17,6 +18,8 @@ export const LIMITS = {
   verifyPerEmail: 8,
   verifyPerIp: 30,
   verifyWindowMs: 15 * 60 * 1000,
+  askPerEmail: 30,
+  askWindowMs: 60 * 60 * 1000,
   maxAttempts: 5,
 };
 
@@ -215,7 +218,7 @@ function bump(buckets, key, windowMs, now) {
   else rec.count += 1;
 }
 
-export function createApp({ env, sendEmail, distDir, now = () => Date.now() }) {
+export function createApp({ env, sendEmail, distDir, now = () => Date.now(), complete }) {
   const secret = env.SESSION_SECRET || '';
   if (secret.length < 32) throw new Error('SESSION_SECRET must be at least 32 characters');
   const allowlist = exactAllowlist(env.ALLOWLIST_EMAILS);
@@ -339,7 +342,44 @@ export function createApp({ env, sendEmail, distDir, now = () => Date.now() }) {
     return res.redirect(302, '/login');
   });
 
-  app.post('/api/ask', (_req, res) => refused(res));
+  app.post('/api/ask', async (req, res) => {
+    const session = readSession(req, secret, allowlist, now);
+    if (!session) return refused(res);
+    if (!sameOrigin(req)) return refused(res);
+    const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+    if (!question || question.length > 500) {
+      return res.status(400).json({
+        status: 'refused',
+        unknownReason: 'Ask a short question about this plan.',
+        answer: '',
+        citations: [],
+        residualsNamed: [],
+        confidence: 'low',
+        path: 'n/a',
+      });
+    }
+    const t = now();
+    sweep(t);
+    const wait = waitMs(buckets, `ask:${session.email}`, LIMITS.askPerEmail, t);
+    if (wait > 0) return tooMany(res, wait, 'window');
+    bump(buckets, `ask:${session.email}`, LIMITS.askWindowMs, t);
+    const pathHint = req.body?.pathHint;
+    try {
+      const payload = await answerQuestion({ distDir, env, question, pathHint, complete });
+      return res.json(payload);
+    } catch {
+      console.error('ask failed');
+      return res.status(500).json({
+        status: 'refused',
+        unknownReason: 'The plan could not be read just now.',
+        answer: '',
+        citations: [],
+        residualsNamed: [],
+        confidence: 'low',
+        path: 'n/a',
+      });
+    }
+  });
   app.use('/api', (_req, res) => refused(res));
 
   app.use(express.static(distDir, { index: false, fallthrough: true, dotfiles: 'deny' }));
