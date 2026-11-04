@@ -1,13 +1,15 @@
+# Fallback only. The install path is deploy/deploy.sh, which starts
+# `npx next start -H 127.0.0.1 -p 8787` in the Caddy container network.
+# Use this unit only when Caddy itself can open 127.0.0.1:8787 on the host.
 [Unit]
-Description=2026 Market Plan session server
+Description=Market Intelligence Next.js
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/intelligence
+WorkingDirectory=/opt/intelligence/web
 EnvironmentFile=/opt/intelligence/.env
-Environment=HOST=127.0.0.1
-ExecStart=/usr/bin/node server/index.js
+ExecStart=/usr/bin/node /opt/intelligence/web/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 8787
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

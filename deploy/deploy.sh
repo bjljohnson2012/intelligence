@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Build the plan and install the session server on the VPS.
-# Caddy stays in Docker. The Node process joins Caddy's network namespace so
-# reverse_proxy 127.0.0.1:8787 reaches it, and port 8787 is not published.
+# Build the Next.js app and install it on the VPS.
+# Caddy stays in Docker. Next joins Caddy's network namespace so
+# reverse_proxy 127.0.0.1:8787 reaches `next start`, and port 8787 is not published.
 # This script does not upload secrets. Create /opt/intelligence/.env on the server first.
+# Do not run this against the live host until the V3 hold is lifted.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 KEY=${KEY:-/home/box/.ssh/vps_deploy_fmt}
@@ -12,15 +13,35 @@ CADDYFILE=${CADDYFILE:-/opt/ae-coach/docker/Caddyfile}
 SSH=(ssh -i "$KEY" -o IdentitiesOnly=yes)
 SCP=(scp -i "$KEY" -o IdentitiesOnly=yes)
 
-npm run build
-test -f dist/index.html
+(
+  cd web
+  npm ci
+  npm run build
+)
+test -f web/.next/BUILD_ID
+test -d web/public
+test -d shared
+test -f public/data/pack.json
+test -f public/social/buyers-see-say.json
+test -f public/evidence/comp-2026-11-04/mb_home.png
 
 TAR=$(mktemp)
 tar czf "$TAR" \
-  --exclude node_modules \
+  --exclude web/node_modules \
+  --exclude web/.next/cache \
+  --exclude web/.data \
   --exclude .env \
   --exclude deploy/.env \
-  dist server src package.json package-lock.json deploy
+  web/.next \
+  web/public \
+  web/package.json \
+  web/package-lock.json \
+  web/next.config.mjs \
+  shared \
+  public/data \
+  public/social \
+  public/evidence \
+  deploy
 "${SCP[@]}" "$TAR" "$HOST:/tmp/intelligence-src.tgz"
 rm -f "$TAR"
 
@@ -37,13 +58,13 @@ if [[ ! -f "$DEST/.env" ]]; then
   exit 1
 fi
 chmod 600 "$DEST/.env"
-docker run --rm -v "$DEST":/app -w /app node:22-bookworm npm ci --omit=dev
+docker run --rm -v "$DEST/web":/app -w /app node:22-bookworm npm ci --omit=dev
 docker rm -f intelligence >/dev/null 2>&1 || true
 docker run -d --name intelligence --restart unless-stopped \
   --network container:ae-coach-caddy-1 \
   --env-file "$DEST/.env" \
-  -v "$DEST":/app -w /app \
-  node:22-bookworm node server/index.js
+  -v "$DEST":/app -w /app/web \
+  node:22-bookworm npx next start -H 127.0.0.1 -p 8787
 python3 "$DEST/deploy/update-caddy-site.py" "$CADDYFILE" "$DEST/deploy/Caddyfile.intelligence"
 docker exec ae-coach-caddy-1 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 echo "Deployed. Sign-in is required at https://intelligence.benjohnson.ai"
