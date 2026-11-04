@@ -239,7 +239,7 @@ test('code requests are rate limited without saying who is on the list', async (
   const distDir = await fixture();
   const app = await start({ distDir });
   try {
-    assert.equal(LIMITS.requestPerEmail, 10);
+    assert.equal(LIMITS.requestPerEmail, 20);
     assert.equal(LIMITS.requestPerIp, 20);
     assert.equal(LIMITS.requestWindowMs, 60 * 60 * 1000);
     assert.equal(LIMITS.verifyPerEmail, 8);
@@ -271,7 +271,7 @@ test('four code requests in one hour stay under the email budget', async () => {
   const distDir = await fixture();
   const app = await start({ distDir });
   try {
-    assert.ok(LIMITS.requestPerEmail >= 10);
+    assert.equal(LIMITS.requestPerEmail, 20);
     for (let i = 0; i < 4; i++) {
       const res = await post(app.base, '/api/auth/request-code', { email: 'rate-proof@example.com' });
       assert.equal(res.res.status, 200);
