@@ -11,6 +11,18 @@ Product copy stays in plain language. Say **Thing to plan for** and **Thing to t
 
 This repository is the source of truth for the build-out. Private file snapshots belong on [share.benjohnson.ai](https://share.benjohnson.ai) only. The interactive plan lives at **https://intelligence.benjohnson.ai**.
 
+## V3 (Next.js)
+
+`web/` is the V3 app: Next.js 14 App Router, shadcn/ui, Recharts, and MapLibre. It is not deployed over the live Vite host. Run it locally:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Set `SESSION_SECRET` and `ALLOWLIST_EMAILS` in the environment first (same contract as the VPS server). Leave `SUPABASE_URL` empty until a Supabase project exists. The app then reads the pack JSON. Code requests still go through Resend only when `RESEND_API_KEY` is set. Do not point this branch at the live host until Designer, Flow, and Clarity each score at least 8.
+
 ## Sign-in
 
 Auth is a session on the VPS. There is no Cloudflare Access, Tunnel, or Cloudflare DNS in front of this host. Leave the root Google MX for benjohnson.ai alone.
