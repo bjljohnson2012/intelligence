@@ -1,8 +1,8 @@
 import Chart from 'chart.js/auto';
-import { paths } from './content.js';
 
 const screens = {
-  plain: ['t-start', 't-plain'],
+  start: ['t-start'],
+  plain: ['t-plain'],
   win: ['t-win'],
   tam: ['t-tam'],
   icp: ['t-icp'],
@@ -53,29 +53,7 @@ function show(name, anchor) {
   history.replaceState(null, '', `#${key}${anchor ? `-${anchor}` : ''}`);
 }
 
-function list(items) {
-  return `<ul class="steps">${items.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`;
-}
-
 function paintPath() {
-  const key = document.body.dataset.path === 'enterprise' ? 'large' : 'mid';
-  const plan = paths[key];
-  const tabs = plan.tabs;
-  const win = tabs['Win / lose'];
-  const who = document.getElementById('path-icp');
-  const lose = document.getElementById('path-win');
-  const home = document.getElementById('path-plain');
-  const moves = document.getElementById('path-plan');
-  if (home) {
-    home.innerHTML = `<div class="panel exec"><div class="exhibit">${esc(plan.tag)}</div><h3>${esc(plan.title)}</h3><p>${esc(plan.answer)}</p><div class="kpis">${plan.facts.map(([n, l]) => `<div class="kpi"><div class="l">${esc(l)}</div><div class="v">${esc(n)}</div></div>`).join('')}</div></div>`;
-  }
-  if (lose && win) {
-    lose.innerHTML = `<div class="grid2"><div class="panel"><h3>Where we win</h3>${list(win.win)}</div><div class="panel"><h3>Where we lose today</h3>${list(win.lose)}</div></div>`;
-  }
-  if (who) who.innerHTML = `<div class="panel"><div class="exhibit">This path</div><h3>Who we sell</h3>${list(tabs['Who we sell'])}</div>`;
-  if (moves) {
-    moves.innerHTML = ['How we attack', 'Proof', 'Open items', 'Next moves'].map((name) => `<div class="panel"><h3>${esc(name)}</h3>${list(tabs[name])}</div>`).join('');
-  }
   document.querySelectorAll('.pathcard').forEach((card) => {
     card.classList.toggle('on', card.dataset.setpath === document.body.dataset.path);
   });
@@ -95,6 +73,7 @@ function setPath(path) {
 
 function sectionItems() {
   return [
+    ['Start here', 'start'],
     ['In plain terms', 'plain'],
     ['Where we win', 'win'],
     ['Market', 'tam'],
@@ -114,7 +93,7 @@ function sectionItems() {
 
 function planItems() {
   return ['V1 Safe migration', 'V2 Trust during the switch', 'V3 One money truth', 'V4 No death-march rip', 'V5 Fund accounting', 'V6 Honest total cost'].map((label) => ({
-    group: 'Plan bets', label, go: 'bets', anchor: '', text: label,
+    group: 'Plan', label, go: 'bets', anchor: '', text: label,
   }));
 }
 
@@ -338,7 +317,7 @@ document.addEventListener('click', (event) => {
   const kind = event.target.closest('#kindFil button');
   const askPathButton = event.target.closest('#askPath button');
   if (close) { close.closest('dialog')?.close(); return; }
-  if (path) { setPath(path.dataset.setpath); show(path.dataset.setpath === 'enterprise' ? 'bets' : 'icp'); return; }
+  if (path) { setPath(path.dataset.setpath); return; }
   if (rival) {
     document.querySelectorAll('#rivalFil button').forEach((button) => button.setAttribute('aria-pressed', button === rival ? 'true' : 'false'));
     applyGallery();
@@ -371,7 +350,7 @@ document.addEventListener('click', (event) => {
     else item.classList.toggle('big');
     return;
   }
-  if (go && !event.target.closest('dialog')) show(go.dataset.go === 'start' ? 'plain' : go.dataset.go);
+  if (go && !event.target.closest('dialog')) show(go.dataset.go);
   if (event.target.tagName === 'DIALOG') event.target.close();
 });
 
@@ -396,4 +375,4 @@ const hash = location.hash.replace('#', '');
 if (hash) {
   const [name, anchor] = hash.split('-');
   show(name, anchor || (name === 'value' ? 'ex17' : ''));
-} else show('plain');
+} else show('start');

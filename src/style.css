@@ -199,11 +199,11 @@ dialog{border:none;border-radius:12px;padding:18px;max-width:min(980px,94vw);bac
 .hrow{align-items:center}
 .brand{margin-right:8px}
 .pathswitch{display:flex;gap:8px;flex-wrap:wrap}
-.pathswitch button{font-family:var(--f-display);font-weight:600;font-size:13px;line-height:1.25;border:1px solid var(--line2);background:var(--surface);color:var(--ink);padding:8px 12px;border-radius:8px;cursor:pointer;text-align:left}
+.pathswitch button{font-family:var(--f-display);font-weight:600;font-size:13px;line-height:1.25;border:1px solid var(--line2);background:var(--surface);color:var(--ink);padding:8px 12px;border-radius:6px;cursor:pointer;text-align:left}
 .pathswitch button small{display:block;font-family:var(--f-body);font-weight:500;font-size:11px;color:var(--muted);letter-spacing:0;text-transform:none}
 .pathswitch button[aria-pressed="true"]{background:var(--teal-soft);border-color:var(--teal);color:var(--head)}
 .pathswitch button[aria-pressed="true"] small{color:var(--head)}
-.searchbtn{display:flex;align-items:center;gap:10px;min-width:min(280px,100%);border:1px solid var(--line2);background:var(--bg);color:var(--muted);border-radius:8px;padding:8px 12px;font-family:var(--f-body);font-size:14px;cursor:pointer}
+.searchbtn{display:flex;align-items:center;gap:10px;min-width:min(280px,100%);border:1px solid var(--line2);background:var(--bg);color:var(--muted);border-radius:6px;padding:8px 12px;font-family:var(--f-body);font-size:14px;cursor:pointer}
 .searchbtn kbd{margin-left:auto;font-family:var(--f-body);font-size:11px;border:1px solid var(--line2);border-bottom-width:2px;border-radius:4px;padding:1px 6px;color:var(--ink);background:var(--surface)}
 .signout{border:1px solid var(--line2);background:var(--surface);color:var(--head);border-radius:8px;padding:8px 12px;font-family:var(--f-display);font-weight:600;font-size:13px;cursor:pointer}
 .signout:hover,.searchbtn:hover,.pathswitch button:hover{border-color:var(--teal)}
@@ -232,7 +232,7 @@ body[data-path="enterprise"] .pathbanner{border-left-color:var(--orange)}
 #askForm{display:flex;gap:8px;align-items:stretch}
 #askIn{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line2);font:inherit;background:var(--surface);color:var(--ink);resize:vertical}
 #askIn:focus{outline:2px solid var(--teal);outline-offset:2px}
-#askForm button{background:var(--teal);color:#fff;border:0;border-radius:8px;padding:0 18px;font-family:var(--f-display);font-weight:600;cursor:pointer}
+#askForm button{background:var(--teal);color:#fff;border:0;border-radius:6px;padding:0 18px;font-family:var(--f-display);font-weight:600;cursor:pointer}
 .askout{margin-top:14px;display:flex;flex-direction:column;gap:8px}
 .q{align-self:flex-end;background:var(--navy);color:#fff;padding:8px 14px;border-radius:12px 12px 2px 12px;max-width:80%}
 .a{background:var(--bg);border:1px solid var(--line);padding:10px 14px;border-radius:12px 12px 12px 2px;max-width:90%}
