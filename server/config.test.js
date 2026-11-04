@@ -27,7 +27,7 @@ test('Caddy proxies to the Node server and has no placeholder response', () => {
   assert.equal(/file_server/.test(caddy), false);
 });
 
-test('docs describe VPS one-time-code login and a host that is not open yet', () => {
+test('docs describe VPS one-time-code login on the live host', () => {
   const readme = read('README.md');
   const status = read('docs/STATUS.md');
   for (const text of [readme, status]) {
@@ -40,8 +40,9 @@ test('docs describe VPS one-time-code login and a host that is not open yet', ()
     assert.match(text, /1,000\+/);
   }
   assert.match(readme, /no Cloudflare Access, Tunnel, or Cloudflare DNS/);
-  assert.match(status, /Live host is not open/);
-  assert.match(status, /Live mid-size selling is on hold/);
+  assert.match(status, /Gate is live/);
+  assert.match(status, /Live Core \/ mid-size selling stays on hold/);
+  assert.equal(status.includes('Live host is not open'), false);
   assert.equal(read('server/mail.js').includes('fieldschool'), false);
   assert.equal(read('server/index.js').includes('fieldschool'), false);
 });

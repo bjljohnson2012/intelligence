@@ -89,6 +89,7 @@ test('unsigned visitors get the login page and not the plan', async () => {
     const html = await login.text();
     assert.equal(login.status, 200);
     assert.match(html, /Email me a code/);
+    assert.match(html, /Only the newest code works; each new email replaces the last\./);
     assert.equal(html.includes('PLAN_MARKER'), false);
     assert.equal(html.includes('weekly attendance'), false);
 
