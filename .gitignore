@@ -1,0 +1,49 @@
+# Dependencies and build output
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Environment and secrets — never commit values or keys
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+id_ecdsa
+id_ecdsa.pub
+*.p12
+*.pfx
+*.kdbx
+credentials.json
+service-account*.json
+
+# Logs and caches
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.cache/
+coverage/
+
+# OS junk
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+desktop.ini
+
+# Editor scratch
+*.swp
+*.swo
+*~
+.idea/

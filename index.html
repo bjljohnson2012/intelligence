@@ -1,0 +1,32 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2026 Market Plan · Ministry Brands</title><meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/src/style.css"></head>
+<body>
+<header class="top"><a href="#home" class="brand"><span class="dot"></span>2026 Market Plan</a>
+<nav><a href="#mid">Mid-size</a><a href="#large">Large</a><a href="#rivals">Competitors</a><a href="#open">Open items</a><a href="#ask" class="pill">Ask the plan</a></nav>
+<input id="search" type="search" placeholder="Search the plan…" aria-label="Search the plan"><div id="results" class="results" hidden></div></header>
+<main>
+<section id="home" class="hero reveal">
+ <p class="kicker">Planning draft · Live selling to mid-size churches is on hold until the open items below clear</p>
+ <h1>Win mid-size churches first. Run a separate, named-account plan for large churches.</h1>
+ <p class="lede">Mid-size churches (weekly attendance 250–999) give the best balance of deal size and time to close, so sales starts there. Large churches (1,000+) hold the biggest share of churchgoers but buy differently — through formal reviews, boards and multi-campus needs — so they get their own plan, not leftovers.</p>
+ <div class="paths">
+  <a href="#mid" class="path mid"><span class="tag">Core focus</span><strong>Mid-size churches</strong><em>250–999 weekly attendance</em><span class="stat">~10k–25k churches · ~25–30% of churchgoers</span><span class="go">See the plan →</span></a>
+  <a href="#large" class="path large"><span class="tag">Commercial Plus / Enterprise</span><strong>Large churches</strong><em>1,000+ weekly attendance</em><span class="stat">~1,750 churches at 2,000+ · largest churchgoer pool</span><span class="go">See the plan →</span></a>
+ </div>
+ <div class="three"><div><b>1</b>Lead with ease and a real person who answers — that is what buyers say first.</div><div><b>2</b>Close with one trusted money record: gift, person and books together.</div><div><b>3</b>Fix the switch experience — it is our biggest gap today.</div></div>
+</section>
+<section class="band reveal"><h2>Where the churches — and the churchgoers — are</h2><p class="muted" id="mixnote"></p>
+ <div class="toggle" role="group"><button data-mix="congregationsPct" class="on">Share of churches</button><button data-mix="attendeesPct">Share of churchgoers</button></div>
+ <div class="chartbox"><canvas id="mixChart"></canvas></div><p class="refresh" id="mixrefresh"></p></section>
+<section id="mid" class="pathsec reveal"></section>
+<section id="large" class="pathsec reveal"></section>
+<section id="values" class="band reveal"><h2>What churches say they value</h2><p class="muted">From 71 coded reviews of rival and older products. Giving growth: mentioned by none.</p><div class="chartbox"><canvas id="valChart"></canvas></div><p class="refresh" id="valrefresh"></p></section>
+<section id="rivals" class="band reveal"><h2>Competitor explorer</h2><div class="toggle" id="rivalFilter"><button class="on" data-f="all">All</button><button data-f="Mid-size">Mid-size</button><button data-f="Large">Large</button></div><div id="rivalGrid" class="grid"></div><p class="refresh" id="rivrefresh"></p></section>
+<section id="open" class="band reveal"><h2>Open items we must plan around</h2><p class="muted">Nothing here is presented as proven. Each item names what would clear it and who owns it.</p><div class="donutrow"><div class="chartbox small"><canvas id="resChart"></canvas></div><div id="resList" class="reslist"></div></div><p class="refresh" id="resrefresh"></p></section>
+<section id="review" class="band reveal"><h2>Review scores</h2><div id="council" class="scores"></div></section>
+<section id="ask" class="band reveal"><h2>Ask the plan</h2><p class="muted">Answers come only from the plan's research. If the research doesn't say, the answer is “Unknown.”</p>
+ <div class="chips"><button>Why start with mid-size churches?</button><button>How do we win large churches?</button><button>What is still unproven?</button><button>How do we compare with Pushpay?</button></div>
+ <p class="pending">Sign-in required. AI answers switch on after access control and the plan library are set up.</p><form id="askForm"><textarea id="askIn" rows="2" placeholder="Type a question…"></textarea><button>Send</button></form><div class="chips res-chips"><span class="badge">R1</span><span class="badge">R2</span><span class="badge">R3</span><span class="badge">R4</span><span class="badge">R5</span></div><div id="askOut" class="askout"></div></section>
+</main>
+<footer>Planning draft for internal review · Sources: Ministry Brands market research files, 2026-11-03 to 2026-11-04 · Data refresh notes shown under each chart</footer>
+<script type="module" src="/src/main.js"></script></body></html>
