@@ -11,7 +11,7 @@ export const LIMITS = {
   codeTtlMs: 5 * 60 * 1000,
   sessionTtlSec: 7 * 24 * 60 * 60,
   cooldownMs: 60 * 1000,
-  requestPerEmail: 10,
+  requestPerEmail: 20,
   requestPerIp: 20,
   requestWindowMs: 60 * 60 * 1000,
   verifyPerEmail: 8,
