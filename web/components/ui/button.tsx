@@ -9,6 +9,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-accent text-white hover:brightness-110',
+        notion: 'bg-navy text-white hover:brightness-110',
         outline: 'border border-line bg-white text-navy hover:bg-paper',
         ghost: 'text-navy hover:bg-mist',
       },

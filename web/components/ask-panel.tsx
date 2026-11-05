@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
+import { NotionCta } from '@/components/notion-cta';
 
 type Citation = { id: string; label: string; source: string };
 type Turn = {
@@ -22,7 +23,7 @@ const PATHS = [
 
 type PathId = (typeof PATHS)[number]['id'];
 
-export function AskPanel() {
+export function AskPanel({ source }: { source: string }) {
   const [pathName, setPathName] = useState<PathId>('all');
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -76,12 +77,19 @@ export function AskPanel() {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex gap-1 px-4 pt-3">
         {PATHS.map((item) => (
-          <button key={item.id} type="button" onClick={() => setPathName(item.id)} className={`rounded-full px-2.5 py-1 text-xs font-medium ${pathName === item.id ? 'bg-mist text-accent' : 'text-muted hover:bg-paper'}`}>
+          <button key={item.id} type="button" onClick={() => setPathName(item.id)} className={`rounded-md px-2.5 py-1 text-xs font-medium ${pathName === item.id ? 'bg-mist text-accent' : 'text-muted hover:bg-paper'}`}>
             {item.label}
           </button>
         ))}
       </div>
-      <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto px-4 py-3">
+      <div className="space-y-3 px-4 py-3">
+        <div className="rounded-md border-l-[3px] border-accent bg-[#EEF6FC] px-3 py-2.5 text-xs leading-5 text-ink">
+          <strong>This chat is not saved.</strong> Answers come from the pack in this session. For the durable plan and comments, open Notion.
+        </div>
+        <NotionCta tone="primary" arrow className="w-full" />
+        <p className="text-[11px] leading-4 text-muted">Session turns only · clears when you leave · no Ask history · no saved views</p>
+      </div>
+      <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto px-4 pb-3">
         {turns.length === 0 ? <p className="text-sm leading-6 text-muted">Ask about this plan. A match at 0.72 or above is quoted with its source. Anything lower is not found.</p> : null}
         {turns.map((turn) => (
           <article key={turn.id} className="space-y-2">
@@ -102,13 +110,19 @@ export function AskPanel() {
           </article>
         ))}
       </div>
-      <form onSubmit={submit} className="border-t border-line p-3">
-        <label className="sr-only" htmlFor="ask-q">Question</label>
-        <textarea id="ask-q" value={question} onChange={(event) => setQuestion(event.target.value)} rows={2} maxLength={500} placeholder="Ask a question the pack can answer" className="w-full resize-none rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-accent" />
-        <div className="mt-2 flex justify-end">
-          <Button type="submit" disabled={pending || !question.trim()}>{pending ? 'Checking' : 'Ask'}</Button>
+      <div className="border-t border-line">
+        <div className="flex flex-wrap items-center gap-2 px-3 pt-3 max-[800px]:items-stretch">
+          <p className="min-w-0 flex-1 text-[11px] leading-4 text-muted">{source}</p>
+          <NotionCta tone="ghost" size="sm" className="max-[800px]:w-full" />
         </div>
-      </form>
+        <form onSubmit={submit} className="p-3">
+          <label className="sr-only" htmlFor="ask-q">Question</label>
+          <textarea id="ask-q" value={question} onChange={(event) => setQuestion(event.target.value)} rows={2} maxLength={500} placeholder="Ask a question the pack can answer" className="w-full resize-none rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-accent" />
+          <div className="mt-2 flex justify-end">
+            <Button type="submit" disabled={pending || !question.trim()}>{pending ? 'Checking' : 'Ask'}</Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { ASK_PACK_SOURCE, OVERVIEW_PACK_SOURCE } from '@shared/notion-bridge.mjs';
 import { supabaseAdmin } from '@/lib/supabase';
 
 export type Kpi = { id: string; label: string; value: string; note: string };
@@ -170,7 +171,7 @@ export function loadOverview() {
     chartSource: mix.sources[0] || 'Pack',
     compare: pack.compare,
     cards,
-    source: 'Pack JSON. TAM, SAM, and SOM are Explicit Unknown. Supabase is not connected.',
+    source: OVERVIEW_PACK_SOURCE,
   };
 }
 
@@ -448,7 +449,7 @@ export async function loadAskChunks() {
   }
   return {
     chunks: packChunks(),
-    source: 'Pack text. Cosine similarity. Not found below 0.72. Supabase is not connected.',
+    source: ASK_PACK_SOURCE,
   };
 }
 

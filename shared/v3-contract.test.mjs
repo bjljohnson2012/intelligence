@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -14,6 +15,12 @@ import {
 } from './intel-session.mjs';
 import { createFileStore, requestCode } from './auth-flow.mjs';
 import { answerFromChunks } from './similarity.mjs';
+import {
+  ASK_PACK_SOURCE,
+  NOTION_DASHBOARD_HREF,
+  NOTION_DASHBOARD_LABEL,
+  OVERVIEW_PACK_SOURCE,
+} from './notion-bridge.mjs';
 
 const SECRET = 'test-secret-must-be-at-least-32-characters';
 
@@ -105,6 +112,29 @@ test('a durable file store stops the 21st code request per email and per IP', as
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('notion dashboard CTAs stay on the locked href and ask is visit-only', () => {
+  assert.equal(NOTION_DASHBOARD_HREF, 'https://app.notion.com/p/40efe86f6dee81b5b4bbe57d383ce88c');
+  assert.equal(NOTION_DASHBOARD_LABEL, 'Open Notion dashboard');
+  assert.match(OVERVIEW_PACK_SOURCE, /Supabase is not connected\. Durable plan lives in Notion\./);
+  assert.match(ASK_PACK_SOURCE, /Supabase is not connected\. Durable plan lives in Notion\./);
+  const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
+  const cta = read('../web/components/notion-cta.tsx');
+  assert.match(cta, /target="_blank"/);
+  assert.match(cta, /rel="noopener"/);
+  assert.match(cta, /NOTION_DASHBOARD_HREF/);
+  assert.match(cta, /NOTION_DASHBOARD_LABEL/);
+  const pack = read('../web/lib/pack.ts');
+  assert.match(pack, /OVERVIEW_PACK_SOURCE/);
+  assert.match(pack, /ASK_PACK_SOURCE/);
+  const ask = read('../web/components/ask-panel.tsx');
+  assert.equal(ask.includes('localStorage'), false);
+  assert.equal(ask.includes('sessionStorage'), false);
+  assert.match(ask, /This chat is not saved/);
+  assert.match(read('../web/components/shell.tsx'), /NotionRailLink/);
+  assert.match(read('../web/app/(workspace)/page.tsx'), /PackSourceFooter/);
+  assert.match(read('../web/app/(workspace)/layout.tsx'), /askSource/);
 });
 
 test('ask cites a close chunk and says not found below 0.72', () => {
