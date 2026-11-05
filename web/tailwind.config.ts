@@ -4,10 +4,16 @@ const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      borderRadius: {
+        md: '6px',
+        lg: '10px',
+        xl: '10px',
+        '2xl': '10px',
+      },
       colors: {
         navy: '#0F3E80',
         accent: '#0A5BCC',
-        mist: '#E7F3FB',
+        mist: '#B2E1F6',
         hold: '#FF6200',
         ink: '#504A43',
         muted: '#706B65',

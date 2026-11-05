@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { SeatRow } from '@/lib/pack';
 import { Pager } from '@/components/plan-board';
 
@@ -15,12 +15,14 @@ export function SeatsView({ rows, byTeam }: { rows: SeatRow[]; byTeam: { team: s
     <div>
       <div className="h-56 rounded-xl border border-line bg-white p-3 shadow-card">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={byTeam} layout="vertical" margin={{ left: 24, right: 8 }}>
+          <BarChart data={byTeam} layout="vertical" margin={{ left: 24, right: 28 }}>
             <CartesianGrid stroke="#E4E2E0" horizontal={false} />
             <XAxis type="number" tick={{ fill: '#706B65', fontSize: 11 }} allowDecimals={false} />
             <YAxis type="category" dataKey="team" width={150} tick={{ fill: '#504A43', fontSize: 11 }} />
             <Tooltip />
-            <Bar dataKey="count" fill="#0A5BCC" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="count" fill="#0A5BCC" radius={[0, 4, 4, 0]}>
+              <LabelList dataKey="count" position="right" fill="#0F3E80" fontSize={11} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

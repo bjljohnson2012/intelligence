@@ -1,17 +1,20 @@
 'use client';
 
-import { useState } from 'react';
 import type { ClaimCard, Rival } from '@/lib/pack';
 import { useDrawer } from '@/components/shell';
-import { Pager } from '@/components/plan-board';
 
-const PAGE = 4;
+function claimStatus(status: string) {
+  if (status === 'pass') return 'Pass';
+  if (status === 'partial') return 'Partial';
+  if (status === 'fail') return 'Not winning';
+  if (status === 'unknown') return 'Explicit Unknown';
+  if (status === 'open') return 'Still open';
+  if (status === 'hold') return 'Hold';
+  return 'In the pack';
+}
 
 export function CompetitorGrid({ rivals, claims }: { rivals: Rival[]; claims: ClaimCard[] }) {
   const { openDetail } = useDrawer();
-  const [page, setPage] = useState(1);
-  const pages = Math.max(1, Math.ceil(claims.length / PAGE));
-  const visible = claims.slice((page - 1) * PAGE, page * PAGE);
   return (
     <div>
       <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -48,16 +51,15 @@ export function CompetitorGrid({ rivals, claims }: { rivals: Rival[]; claims: Cl
         ))}
       </div>
       <h2 className="mb-3 mt-8 font-display text-base font-bold text-navy">Where we win and lose</h2>
-      <div className="grid gap-3 md:grid-cols-2">
-        {visible.map((claim) => (
-          <article key={claim.id} className="flex h-full min-h-[8.5rem] flex-col rounded-xl border border-line bg-white p-4">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{claim.status}</span>
-            <h3 className="mt-1 font-display text-sm font-bold text-navy">{claim.title}</h3>
-            <p className="mt-2 text-sm leading-5 text-ink">{claim.text}</p>
+      <div className="grid gap-3">
+        {claims.map((claim) => (
+          <article key={claim.id} className="rounded-xl border border-line bg-white p-4">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{claimStatus(claim.status)}</span>
+            <h3 className="mt-1 font-display text-base font-bold leading-6 text-navy">{claim.title}</h3>
+            {claim.text ? <p className="mt-2 text-sm leading-5 text-ink">{claim.text}</p> : null}
           </article>
         ))}
       </div>
-      <Pager page={page} pages={pages} onPage={setPage} />
     </div>
   );
 }

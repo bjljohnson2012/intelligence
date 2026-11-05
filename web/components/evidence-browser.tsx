@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from 'react';
 import type { EvidenceRow } from '@/lib/pack';
+import { Capture } from '@/components/capture';
 import { useDrawer } from '@/components/shell';
 import { Pager } from '@/components/plan-board';
 
 const PAGE = 8;
 
 export function EvidenceBrowser({ rows }: { rows: EvidenceRow[] }) {
-  const { openDetail } = useDrawer();
+  const { openDetail, close } = useDrawer();
   const [rival, setRival] = useState('all');
   const [kind, setKind] = useState('all');
   const [page, setPage] = useState(1);
@@ -21,11 +22,11 @@ export function EvidenceBrowser({ rows }: { rows: EvidenceRow[] }) {
   return (
     <div>
       <div className="mb-3 flex flex-wrap gap-2">
-        <select value={rival} onChange={(event) => { setRival(event.target.value); setPage(1); }} className="h-9 rounded-md border border-line bg-white px-2 text-sm" aria-label="Rival">
+        <select value={rival} onChange={(event) => { setRival(event.target.value); setPage(1); close(); }} className="h-9 rounded-md border border-line bg-white px-2 text-sm" aria-label="Rival">
           <option value="all">All rivals</option>
           {rivals.map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
-        <select value={kind} onChange={(event) => { setKind(event.target.value); setPage(1); }} className="h-9 rounded-md border border-line bg-white px-2 text-sm" aria-label="Kind">
+        <select value={kind} onChange={(event) => { setKind(event.target.value); setPage(1); close(); }} className="h-9 rounded-md border border-line bg-white px-2 text-sm" aria-label="Kind">
           <option value="all">All kinds</option>
           {kinds.map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
@@ -45,8 +46,9 @@ export function EvidenceBrowser({ rows }: { rows: EvidenceRow[] }) {
                     title: row.title,
                     kicker: `${row.captured} · marketing page`,
                     lines: [row.decision],
+                    image: row.src,
                     facts: [
-                      { label: 'File', value: row.id },
+                      { label: 'Decision', value: row.decision },
                       { label: 'Page', value: row.url },
                     ],
                   })}>
@@ -66,7 +68,7 @@ export function EvidenceBrowser({ rows }: { rows: EvidenceRow[] }) {
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {visible.map((row) => (
           <figure key={`${row.id}-shot`} className="overflow-hidden rounded-xl border border-line bg-white">
-            <img src={row.src} alt={row.decision} className="h-36 w-full object-cover object-top" />
+            <Capture src={row.src} alt={row.title} />
             <figcaption className="px-3 py-2 text-xs leading-5 text-muted">{row.title}</figcaption>
           </figure>
         ))}

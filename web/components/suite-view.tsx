@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ModuleCompare } from '@/lib/pack';
+import { Capture } from '@/components/capture';
 
 function moveLabel(mod: ModuleCompare) {
   if (mod.unknown || mod.move === 'unknown') return 'Explicit Unknown';
@@ -17,6 +18,7 @@ export function SuiteView({ modules }: { modules: ModuleCompare[] }) {
   if (!current) return <p className="text-sm text-muted">No module compare is in the pack.</p>;
   return (
     <div>
+      <p className="mb-3 rounded-xl border border-line bg-mist px-3 py-2 text-sm leading-6 text-ink">These are public marketing pages captured November 3–4, 2026. There is no logged-in Amplify module screenshot, so a module that only has a homepage is still a homepage.</p>
       <label className="mb-3 block text-xs text-muted">
         Module
         <select value={current.id} onChange={(event) => setId(event.target.value)} className="ml-2 h-9 rounded-md border border-line bg-white px-2 text-sm text-ink">
@@ -43,9 +45,9 @@ function ShotColumn({ title, files, empty, decision }: { title: string; files: s
       {files.length === 0 ? <p className="mt-2 text-sm text-muted">{empty}</p> : null}
       <div className="mt-2 space-y-3">
         {files.map((file) => (
-          <figure key={file} className="overflow-hidden rounded-lg border border-line">
-            <img src={`/evidence/comp-2026-11-04/${file}`} alt={decision} className="w-full object-cover object-top" />
-            <figcaption className="px-2 py-1 text-[11px] text-muted">{file}</figcaption>
+          <figure key={file} className="overflow-hidden rounded-xl border border-line bg-white">
+            <Capture src={`/evidence/comp-2026-11-04/${file}`} alt={decision} tall />
+            <figcaption className="px-3 py-2 text-xs leading-5 text-muted">Public marketing page</figcaption>
           </figure>
         ))}
       </div>

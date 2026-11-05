@@ -91,6 +91,7 @@ export type AskChunk = { id: string; title: string; content: string; source: str
 type PackItem = {
   id?: string;
   kind?: string;
+  section?: string;
   title?: string;
   value?: string;
   note?: string;
@@ -140,15 +141,15 @@ function kpi(items: PackItem[], id: string): Kpi {
   };
 }
 
-export function loadOverview(admin: boolean) {
+export function loadOverview() {
   const pack = packItems();
   const mix = readJson<{ note: string; bands: { label: string; congregationsPct: number; attendeesPct: number | null; confidence: string; count: string }[]; sources: string[] }>('public/data/attendance-mix.json');
   const cards: OrderCard[] = [
-    { n: '1', title: 'In plain terms', body: 'Live Core stays HOLD. The pack is for planning, not a launch approval.', href: '/' },
-    { n: '2', title: 'Where we win and lose', body: 'Edge, parity, and gaps. Each row still names what is open.', href: '/intel/competitors' },
-    { n: '3', title: 'Competitors', body: 'Six vendors. Logos stay Explicit Unknown until rights are cleared.', href: '/intel/competitors' },
-    { n: '4', title: 'Still open', body: 'Nine items. None of them is a green light for live selling.', href: '/execution/implementation' },
-    { n: '5', title: 'Council', body: admin ? 'The review record is open to this admin seat.' : 'Admin only. Scores are not on this screen.', href: admin ? '/council' : '/execution/implementation' },
+    { n: '1', title: 'In plain terms', body: 'Live Core stays HOLD. The pack is for planning, not a launch approval.', href: '/execution/implementation' },
+    { n: '2', title: '2027 plan', body: 'The motions in the plan. Quarters are Explicit Unknown, so the list is undated.', href: '/market/plan' },
+    { n: '3', title: 'Territories', body: 'Click a state for overlap and quota. A split inside a state is Explicit Unknown.', href: '/market/territories' },
+    { n: '4', title: 'Where we win and lose', body: 'Edge, parity, and gaps. Each row still names what is open.', href: '/intel/competitors' },
+    { n: '5', title: 'Seats', body: 'Totals, filled seats, and the gaps. One glance, then the roster.', href: '/execution/seats' },
   ];
   return {
     lede: pack.hero.core.lede,
@@ -186,7 +187,7 @@ export function loadPlan() {
   const milestones: Milestone[] = [
     ...plan.lines.map((line, index) => ({
       id: `plan-${index + 1}`,
-      title: text(line),
+      title: text(line).replaceAll('Commercial Plus', 'Partner tier'),
       detail: 'Stated in the 2027 plan. Quarter and owner are Explicit Unknown.',
       quarter: null,
       owner: 'Explicit Unknown',
@@ -209,7 +210,7 @@ export function loadPlan() {
     summary: text(plan.summary),
     counts: plan.data.counts,
     milestones,
-    source: `${plan.sourceLabel}. Commercial Plus is on Execution, not on this timeline. Quarters are Explicit Unknown.`,
+    source: `${plan.sourceLabel}. Quarters are Explicit Unknown, so this list is not filtered by quarter.`,
   };
 }
 
@@ -266,12 +267,18 @@ export function loadCompetitors() {
     note: text(rival.headlineNote),
     sizes: text(rival.sizes),
   }));
-  const claims: ClaimCard[] = pack.items.filter((item) => item.kind === 'claim' && item.title && item.text).map((item) => ({
-    id: item.id || item.title || 'claim',
-    title: text(item.title),
-    text: text(item.text),
-    status: text(item.status || 'Explicit Unknown'),
-  }));
+  const claims: ClaimCard[] = pack.items.filter((item) => item.kind === 'claim' && item.section === 'win' && item.text).map((item) => {
+    const full = text(item.text);
+    const still = full.match(/^(.*?)(?:\s+Still open:\s*(.*))?$/);
+    const body = (still?.[1] || full).trim();
+    const open = (still?.[2] || '').trim();
+    return {
+      id: item.id || body,
+      title: body,
+      text: open ? `Still open: ${open}` : '',
+      status: text(item.status || ''),
+    };
+  });
   return { rivals, claims, source: `${file.source} Logos are Explicit Unknown letter tiles. No logo file is licensed in this build.` };
 }
 
@@ -344,24 +351,25 @@ export function loadPlus() {
     other: row.oth,
   }));
   const clients = rows.reduce((sum, row) => sum + row.clients, 0);
-  return { rows, clients, source: `${plan.sourceLabel}. Moved off the 2027 plan. The source name is Commercial Plus.` };
+  return { rows, clients, source: `${plan.sourceLabel}. Moved off the 2027 plan. The source file calls this Partner tier Commercial Plus.` };
 }
 
 export function loadImplementation() {
   const residuals = readJson<{ source: string; items: { id: string; plain: string; status: string; state: string; owner: string; clears: string }[] }>('public/data/residuals.json');
-  const social = readJson<{ note: string; reach: { id: string }[]; posts: { id: string }; quotes: { id: string }[]; also: { id: string }[] }>('public/social/buyers-see-say.json');
+  const social = readJson<{
+    reach: { platform: string; counts: Record<string, number | null> | null }[];
+    posts: { decision: string };
+  }>('public/social/buyers-see-say.json');
   const compares = readJson<{ modules: { name: string; unknown: boolean }[] }>('public/data/amplify-compares.json');
-  const keep = [
-    ...social.reach.map((row) => row.id),
-    social.posts.id,
-    ...social.quotes.map((row) => row.id),
-    ...social.also.map((row) => row.id),
-  ];
   const unknown = compares.modules.filter((mod) => mod.unknown).map((mod) => mod.name);
+  const kept = social.reach.filter((row) => row.counts).map((row) => row.platform);
+  const unread = social.reach.filter((row) => !row.counts).map((row) => row.platform);
   const week = [
-    text(social.note),
-    `KEEP ${keep.join(', ')}. SP13 is dropped.`,
-    unknown.length ? `COMP5 Explicit Unknown: ${unknown.join(', ')}.` : '',
+    'Followers are not reach. Counts are a profile read on 2026-11-04.',
+    kept.length ? `Kept from that read: ${kept.join(' and ')}.` : '',
+    unread.length ? `${unread.join(' and ')} ${unread.length === 1 ? 'was' : 'were'} not read. Explicit Unknown.` : '',
+    social.posts.decision,
+    unknown.length ? `Explicit Unknown modules: ${unknown.join(', ')}.` : '',
   ].filter(Boolean);
   return {
     week,
@@ -445,5 +453,27 @@ export async function loadAskChunks() {
 }
 
 export function loadCouncilHtml() {
-  return readJson<{ html: string }>('server/council-admin.json').html;
+  return loadCouncil().html;
+}
+
+export function loadCouncil() {
+  const raw = readJson<{ html: string }>('server/council-admin.json').html;
+  const html = raw
+    .replace(/<div class="nextbar">[\s\S]*?<\/div>/g, '')
+    .replace(/<button\b[^>]*>/g, '<span>')
+    .replace(/<\/button>/g, '</span>');
+  const text = raw.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+  const strategic = text.match(/Clarity 8\.5 · Out of the Box Thinker 8 · Sales Leader Advisor 8/);
+  const round3 = text.match(/Clarity 9 · Flow 8\.5/);
+  return {
+    html,
+    cards: [
+      { label: 'Pass bar', value: text.includes('≥8 / 10') ? '≥8 / 10' : 'Explicit Unknown', note: 'Every seat' },
+      { label: 'Overview, round 2', value: text.includes('Overview Round 2 PASS') ? 'PASS' : 'Explicit Unknown', note: 'Minimum 8' },
+      { label: 'Intelligent, round 2', value: text.includes('Intelligent Round 2 PASS') ? 'PASS' : 'Explicit Unknown', note: 'Minimum 8' },
+      { label: 'Strategic, round 2', value: text.includes('Strategic Round 2 PASS') ? 'PASS' : 'Explicit Unknown', note: strategic ? strategic[0] : 'Minimum 8' },
+      { label: 'Round 3 pair', value: round3 ? 'PASS' : 'Explicit Unknown', note: round3 ? round3[0] : 'Explicit Unknown' },
+      { label: 'CDM', value: text.includes('PACKAGING') ? 'Packaging' : 'Explicit Unknown', note: 'Ben pack only after every seat is at least 8' },
+    ],
+  };
 }

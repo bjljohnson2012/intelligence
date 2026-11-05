@@ -7,12 +7,14 @@ import { Compass, Menu, Milestone, Sparkles, Swords, X } from 'lucide-react';
 import { RAIL } from '@/lib/nav';
 import { Button } from '@/components/ui/button';
 import { AskPanel } from '@/components/ask-panel';
+import { Capture } from '@/components/capture';
 
 export type Detail = {
   title: string;
   kicker: string;
   lines: string[];
   facts: { label: string; value: string }[];
+  image?: string;
 };
 
 type DrawerState =
@@ -45,6 +47,7 @@ function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
 const DrawerContext = createContext<{
   openAsk: () => void;
   openDetail: (detail: Detail) => void;
+  close: () => void;
 } | null>(null);
 
 export function useDrawer() {
@@ -60,7 +63,10 @@ export function Shell({ email, admin, children }: { email: string; admin: boolea
   const [drawer, dispatch] = useReducer(drawerReducer, initialDrawer);
   const [railOpen, setRailOpen] = useState(false);
 
-  useEffect(() => { setRailOpen(false); }, [pathname]);
+  useEffect(() => {
+    setRailOpen(false);
+    dispatch({ type: 'close' });
+  }, [pathname]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -78,6 +84,7 @@ export function Shell({ email, admin, children }: { email: string; admin: boolea
     <DrawerContext.Provider value={{
       openAsk: () => dispatch({ type: 'open-ask' }),
       openDetail: (detail) => dispatch({ type: 'open-detail', detail }),
+      close: () => dispatch({ type: 'close' }),
     }}>
       <div className="flex h-screen flex-col bg-paper text-ink">
         <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-line bg-white px-4">
@@ -118,7 +125,7 @@ export function Shell({ email, admin, children }: { email: string; admin: boolea
           </nav>
           <main className="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7">{children}</main>
         </div>
-        <aside className={`fixed bottom-0 right-0 top-[52px] z-30 flex w-full flex-col border-l border-line bg-white shadow-card transition-transform duration-200 md:w-96 ${open ? 'translate-x-0' : 'pointer-events-none translate-x-full'}`} aria-hidden={!open}>
+        <aside className={`fixed bottom-0 right-0 top-[52px] z-30 flex w-full min-w-0 flex-col overflow-hidden border-l border-line bg-white shadow-card transition-transform duration-200 md:w-96 ${open ? 'translate-x-0' : 'pointer-events-none translate-x-full'}`} aria-hidden={!open}>
           <div className="flex items-center gap-2 border-b border-line px-4 py-3">
             <h2 className="font-display text-base font-bold text-navy">{drawer.kind === 'detail' ? drawer.detail.title : 'Ask'}</h2>
             <button type="button" className="ml-auto rounded-md p-1 text-muted hover:bg-paper" aria-label="Close panel" onClick={() => dispatch({ type: 'close' })}>
@@ -135,16 +142,17 @@ export function Shell({ email, admin, children }: { email: string; admin: boolea
 
 function DetailBody({ detail }: { detail: Detail }) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+    <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{detail.kicker}</p>
-      <div className="mt-3 space-y-2 text-sm leading-6">
+      {detail.image ? <div className="mt-3 overflow-hidden rounded-xl border border-line"><Capture src={detail.image} alt={detail.title} tall /></div> : null}
+      <div className="mt-3 space-y-2 break-words text-sm leading-6">
         {detail.lines.map((line) => <p key={line}>{line}</p>)}
       </div>
       <dl className="mt-4 space-y-2">
         {detail.facts.map((fact) => (
           <div key={fact.label} className="rounded-lg border border-line px-3 py-2">
             <dt className="text-[11px] uppercase tracking-wide text-muted">{fact.label}</dt>
-            <dd className="text-sm text-ink">{fact.value}</dd>
+            <dd className="break-words text-sm text-ink">{fact.value}</dd>
           </div>
         ))}
       </dl>

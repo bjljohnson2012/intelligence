@@ -12,7 +12,7 @@ export const INTEL_TABS = [
 
 export const EXEC_TABS = [
   { href: '/execution/seats', label: 'Seats' },
-  { href: '/execution/plus', label: 'Commercial Plus' },
+  { href: '/execution/plus', label: 'Partner tier' },
   { href: '/execution/implementation', label: 'Implementation' },
   { href: '/execution/buyers', label: 'Buyers' },
 ];

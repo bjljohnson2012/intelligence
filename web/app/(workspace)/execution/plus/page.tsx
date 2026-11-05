@@ -6,7 +6,7 @@ export default function PlusPage() {
   const data = loadPlus();
   return (
     <div className="mx-auto max-w-[1100px]">
-      <PageIntro kicker="Execution Pipeline" title="Commercial Plus" lede="This motion moved off the 2027 plan. The source still calls it Commercial Plus." />
+      <PageIntro kicker="Execution Pipeline" title="Partner tier" lede="This motion is off the 2027 plan. The roster below is the source file, under the Partner tier name." />
       <PageTabs tabs={EXEC_TABS} current="/execution/plus" />
       <article className="mb-4 rounded-xl border border-line bg-white p-4 shadow-card">
         <p className="text-xs text-muted">Clients in the plan</p>

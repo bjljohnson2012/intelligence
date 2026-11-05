@@ -81,18 +81,18 @@ export function AskPanel() {
           </button>
         ))}
       </div>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto px-4 py-3">
         {turns.length === 0 ? <p className="text-sm leading-6 text-muted">Ask about this plan. A match at 0.72 or above is quoted with its source. Anything lower is not found.</p> : null}
         {turns.map((turn) => (
           <article key={turn.id} className="space-y-2">
             <p className="ml-8 rounded-lg bg-navy px-3 py-2 text-sm text-white">{turn.question}</p>
             {turn.status === 'answered' ? (
-              <div className="rounded-lg border border-line bg-paper px-3 py-2 text-sm leading-6">
-                <p>{turn.answer}</p>
+              <div className="min-w-0 rounded-lg border border-line bg-paper px-3 py-2 text-sm leading-6">
+                <p className="break-words">{turn.answer}</p>
                 <p className="mt-2 text-[11px] text-muted">{turn.score === null ? '' : `${turn.score.toFixed(2)} cosine`}</p>
                 <ul className="mt-2 space-y-1">
                   {turn.citations.map((citation) => (
-                    <li key={citation.id} className="text-xs text-navy">[{citation.id}] {citation.label} — {citation.source}</li>
+                    <li key={citation.id} className="break-words text-xs text-navy">[{citation.id}] {citation.label} — {citation.source}</li>
                   ))}
                 </ul>
               </div>

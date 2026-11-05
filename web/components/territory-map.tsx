@@ -14,6 +14,20 @@ type Props = {
 
 const PAGE = 8;
 
+function mapData(features: MapFeature[], active: boolean, selected: string, matches: (id: number) => boolean) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: features.map((feature) => ({
+      ...feature,
+      properties: {
+        ...feature.properties,
+        shown: !active || feature.properties.territories.some((id) => matches(id)) ? 1 : 0,
+        picked: feature.properties.abbr === selected ? 1 : 0,
+      },
+    })),
+  };
+}
+
 function boundsOf(features: MapFeature[]) {
   let west = 180;
   let south = 90;
@@ -85,14 +99,14 @@ export function TerritoryMap({ features, territories, missing }: Props) {
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
       map.on('load', () => {
         if (!map) return;
-        map.addSource('states', { type: 'geojson', data: { type: 'FeatureCollection', features } });
+        map.addSource('states', { type: 'geojson', data: mapData(features, false, '', () => true) });
         map.addLayer({
           id: 'states-fill',
           type: 'fill',
           source: 'states',
           paint: {
-            'fill-color': ['match', ['get', 'region'], 'West', '#0A5BCC', 'Central', '#0F3E80', 'South', '#127A3E', 'East', '#5C4D7A', '#94A3B8'],
-            'fill-opacity': ['case', ['boolean', ['feature-state', 'dim'], false], 0.16, ['==', ['get', 'overlap'], 1], 0.72, 0.86],
+            'fill-color': ['case', ['==', ['get', 'shown'], 0], '#D9E2EC', ['match', ['get', 'region'], 'West', '#0A5BCC', 'Central', '#0F3E80', 'South', '#127A3E', 'East', '#5C4D7A', '#94A3B8']],
+            'fill-opacity': ['case', ['==', ['get', 'shown'], 0], 0.45, ['==', ['get', 'overlap'], 1], 0.78, 0.92],
           },
         });
         map.addLayer({
@@ -100,16 +114,17 @@ export function TerritoryMap({ features, territories, missing }: Props) {
           type: 'line',
           source: 'states',
           paint: {
-            'line-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#0F3E80', ['==', ['get', 'overlap'], 1], '#FF6200', '#ffffff'],
-            'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 2.4, ['==', ['get', 'overlap'], 1], 1.5, 0.7],
+            'line-color': ['case', ['==', ['get', 'picked'], 1], '#0F3E80', ['==', ['get', 'overlap'], 1], '#FF6200', '#ffffff'],
+            'line-width': ['case', ['==', ['get', 'picked'], 1], 2.4, ['==', ['get', 'overlap'], 1], 1.5, 0.7],
           },
         });
         const continental = features.filter((item) => item.properties.abbr !== 'AK' && item.properties.abbr !== 'HI');
         const box = boundsOf(continental);
         if (box) map.fitBounds(box, { padding: 24, animate: false });
         map.on('click', 'states-fill', (event) => {
-          const abbr = event.features?.[0]?.properties?.abbr;
-          if (typeof abbr === 'string') setSelected(abbr);
+          const props = event.features?.[0]?.properties;
+          if (!props || Number(props.shown) === 0) return;
+          if (typeof props.abbr === 'string') setSelected(props.abbr);
         });
         map.on('mouseenter', 'states-fill', () => { if (map) map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', 'states-fill', () => { if (map) map.getCanvas().style.cursor = ''; });
@@ -127,11 +142,8 @@ export function TerritoryMap({ features, territories, missing }: Props) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    for (const feature of features) {
-      const ids = feature.properties.territories;
-      const dim = active && !ids.some((id) => matches(id));
-      map.setFeatureState({ source: 'states', id: feature.id }, { dim, selected: feature.id === selected });
-    }
+    const source = map.getSource('states') as { setData?: (data: ReturnType<typeof mapData>) => void } | undefined;
+    source?.setData?.(mapData(features, active, selected, matches));
   }, [active, features, grade, ready, rep, segment, selected, territories]);
 
   const chosen = features.find((feature) => feature.id === selected) || null;
@@ -143,9 +155,9 @@ export function TerritoryMap({ features, territories, missing }: Props) {
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div>
         <div className="mb-3 flex flex-wrap gap-2">
-          <Filter label="Rep" value={rep} options={reps} all="All reps" onChange={(value) => { setRep(value); setPage(1); }} />
-          <Filter label="Segment" value={segment} options={segments} all="All segments" onChange={(value) => { setSegment(value); setPage(1); }} />
-          <Filter label="Quota grade" value={grade} options={grades} all="All grades" onChange={(value) => { setGrade(value); setPage(1); }} />
+          <Filter label="Rep" value={rep} options={reps} all="All reps" onChange={(value) => { setRep(value); setPage(1); setSelected(''); }} />
+          <Filter label="Segment" value={segment} options={segments} all="All segments" onChange={(value) => { setSegment(value); setPage(1); setSelected(''); }} />
+          <Filter label="Quota grade" value={grade} options={grades} all="All grades" onChange={(value) => { setGrade(value); setPage(1); setSelected(''); }} />
         </div>
         <div ref={host} className="h-[420px] overflow-hidden rounded-xl border border-line bg-[#E7EEF6] sm:h-[520px]" />
         <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted">
