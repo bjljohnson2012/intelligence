@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+body { min-height: 100vh; }
+
+.council-record h2,
+.council-record h3 { font-family: var(--font-display), system-ui, sans-serif; color: #0F3E80; }
+.council-record table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.council-record th,
+.council-record td { border-bottom: 1px solid #E4E2E0; padding: 8px 10px; text-align: left; vertical-align: top; }
+.council-record p { margin: 0 0 8px; }

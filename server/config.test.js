@@ -19,6 +19,28 @@ test('env examples name the session secret, Resend key, From address, and allowl
   assert.equal(rootExample.includes('SESSION_SECRET=' + 're_'), false);
 });
 
+test('deploy starts Next on loopback 8787 and does not publish that port', () => {
+  const script = read('deploy/deploy.sh');
+  const unit = read('deploy/intelligence.service');
+  assert.match(script, /npx next start -H 127\.0\.0\.1 -p 8787/);
+  assert.match(script, /--network container:ae-coach-caddy-1/);
+  assert.match(script, /--env-file "\$DEST\/\.env"/);
+  assert.match(script, /web\/\.next/);
+  assert.match(script, /\n {2}shared \\/);
+  assert.match(script, /public\/data/);
+  assert.match(script, /public\/evidence/);
+  assert.equal(script.includes('server/index.js'), false);
+  assert.equal(script.includes('dist/index.html'), false);
+  assert.equal(/-p(?:\s+\S+)?8787:8787/.test(script), false);
+  assert.match(unit, /next start -H 127\.0\.0\.1 -p 8787/);
+  assert.equal(unit.includes('server/index.js'), false);
+  assert.match(read('deploy/Caddyfile.intelligence'), /reverse_proxy 127\.0\.0\.1:8787/);
+  const limits = read('shared/intel-session.mjs');
+  assert.match(limits, /requestPerEmail: 20/);
+  assert.match(limits, /requestPerIp: 20/);
+  assert.match(limits, /COOKIE = 'intel_session'/);
+});
+
 test('Caddy proxies to the Node server and has no placeholder response', () => {
   const caddy = read('deploy/Caddyfile.intelligence');
   assert.match(caddy, /reverse_proxy 127\.0\.0\.1:8787/);

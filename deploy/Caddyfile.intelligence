@@ -1,9 +1,9 @@
 intelligence.benjohnson.ai {
 	encode gzip
 	header X-Robots-Tag "noindex, nofollow"
-	# The Node app on 127.0.0.1:8787 serves the plan and the sign-in session.
+	# Next.js `next start -H 127.0.0.1 -p 8787` serves the plan and the sign-in session.
 	# deploy.sh joins that process to the Caddy container network, so this
-	# loopback is the container, not a second public listener.
+	# loopback is the container, not a second public listener. Port 8787 is not published.
 	# Do not serve files from Caddy. Do not put Cloudflare Access in front.
 	reverse_proxy 127.0.0.1:8787
 	log {

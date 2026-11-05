@@ -11,6 +11,18 @@ Product copy stays in plain language. Say **Thing to plan for** and **Thing to t
 
 This repository is the source of truth for the build-out. Private file snapshots belong on [share.benjohnson.ai](https://share.benjohnson.ai) only. The interactive plan lives at **https://intelligence.benjohnson.ai**.
 
+## V3 (Next.js)
+
+`web/` is the V3 app: Next.js 14 App Router, shadcn/ui, Recharts, and MapLibre. `deploy/deploy.sh` on this branch builds that app and would start `npx next start -H 127.0.0.1 -p 8787`. It has not been run, and it is not deployed over the live Vite host. Run it locally:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Set `SESSION_SECRET` and `ALLOWLIST_EMAILS` in the environment first (same contract as the VPS server). Leave `SUPABASE_URL` empty until a Supabase project exists. The app then reads the pack JSON. Code requests still go through Resend only when `RESEND_API_KEY` is set. Do not point this branch at the live host until Designer, Flow, and Clarity each score at least 8.
+
 ## Sign-in
 
 Auth is a session on the VPS. There is no Cloudflare Access, Tunnel, or Cloudflare DNS in front of this host. Leave the root Google MX for benjohnson.ai alone.
@@ -54,7 +66,7 @@ Never commit `.env` or the Resend key.
 
 Notes and the Caddy site block are in [`deploy/`](deploy/).
 
-`deploy/deploy.sh` is the install path. It has not been run for this change. When someone does run it, it builds `dist/`, copies the app to `/opt/intelligence` on the VPS, installs production npm packages, and starts the Node process. It does not upload `.env`. On the server, once:
+`deploy/deploy.sh` is the install path. It has not been run for this change. When someone does run it, it builds `web/`, copies `web/.next`, `web/public`, `shared`, `public/data`, `public/social`, and `public/evidence` to `/opt/intelligence` on the VPS, installs production npm packages in `web/`, and starts `npx next start -H 127.0.0.1 -p 8787`. It does not upload `.env`. On the server, once:
 
 ```bash
 cp /opt/intelligence/deploy/.env.example /opt/intelligence/.env
@@ -63,7 +75,7 @@ chmod 600 /opt/intelligence/.env
 # AUTH_FROM_EMAIL=ben@benjohnson.ai
 ```
 
-Caddy for this host runs in Docker (`ae-coach-caddy-1`). Inside that container, `127.0.0.1` is not the VPS host. `deploy.sh` starts Node with `--network container:ae-coach-caddy-1` so Caddy's `reverse_proxy 127.0.0.1:8787` reaches it, and port 8787 is not opened on the public internet. If the Caddy container is recreated, restart `intelligence` (it shares that network namespace).
+Caddy for this host runs in Docker (`ae-coach-caddy-1`). Inside that container, `127.0.0.1` is not the VPS host. `deploy.sh` starts Next with `--network container:ae-coach-caddy-1` so Caddy's `reverse_proxy 127.0.0.1:8787` reaches it, and port 8787 is not opened on the public internet. If the Caddy container is recreated, restart `intelligence` (it shares that network namespace).
 
 `deploy/Caddyfile.intelligence` is the site block: gzip, `X-Robots-Tag: noindex, nofollow`, the reverse proxy, and the access log. No placeholder page and no file server. `deploy.sh` replaces that block in `/opt/ae-coach/docker/Caddyfile` (it keeps a backup) and reloads Caddy:
 
@@ -79,7 +91,7 @@ Use `deploy/intelligence.service` only when Caddy itself can open `127.0.0.1:878
 
 ```bash
 cp deploy/intelligence.service /etc/systemd/system/intelligence.service
-# point ExecStart at `which node` if it is not /usr/bin/node
+# ExecStart is `next start -H 127.0.0.1 -p 8787`. Point it at `which node` if node is not /usr/bin/node.
 systemctl daemon-reload
 systemctl enable --now intelligence
 systemctl restart intelligence
@@ -92,8 +104,8 @@ docker rm -f intelligence || true
 docker run -d --name intelligence --restart unless-stopped \
   --network container:ae-coach-caddy-1 \
   --env-file /opt/intelligence/.env \
-  -v /opt/intelligence:/app -w /app \
-  node:22-bookworm node server/index.js
+  -v /opt/intelligence:/app -w /app/web \
+  node:22-bookworm npx next start -H 127.0.0.1 -p 8787
 ```
 
 ## Data

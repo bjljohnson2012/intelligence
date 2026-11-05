@@ -3,6 +3,9 @@ node_modules/
 dist/
 .vite/
 *.tsbuildinfo
+web/node_modules/
+web/.next/
+web/.data/
 
 # Environment and secrets — never commit values or keys
 .env
