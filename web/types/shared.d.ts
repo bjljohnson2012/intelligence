@@ -62,6 +62,13 @@ declare module '@server/mail.js' {
   }): Promise<{ ok: boolean; id?: string }>;
 }
 
+declare module '@shared/notion-bridge.mjs' {
+  export const NOTION_DASHBOARD_HREF: string;
+  export const NOTION_DASHBOARD_LABEL: string;
+  export const OVERVIEW_PACK_SOURCE: string;
+  export const ASK_PACK_SOURCE: string;
+}
+
 declare module '@shared/similarity.mjs' {
   export function answerFromChunks(question: string, chunks: AskChunk[], pathName: string): AskAnswer;
 }

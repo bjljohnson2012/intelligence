@@ -8,6 +8,7 @@ import { RAIL } from '@/lib/nav';
 import { Button } from '@/components/ui/button';
 import { AskPanel } from '@/components/ask-panel';
 import { Capture } from '@/components/capture';
+import { NotionCta, NotionRailLink } from '@/components/notion-cta';
 
 export type Detail = {
   title: string;
@@ -58,7 +59,7 @@ export function useDrawer() {
 
 const ICONS = [Compass, Swords, Milestone] as const;
 
-export function Shell({ email, admin, children }: { email: string; admin: boolean; children: ReactNode }) {
+export function Shell({ email, admin, askSource, children }: { email: string; admin: boolean; askSource: string; children: ReactNode }) {
   const pathname = usePathname();
   const [drawer, dispatch] = useReducer(drawerReducer, initialDrawer);
   const [railOpen, setRailOpen] = useState(false);
@@ -87,15 +88,16 @@ export function Shell({ email, admin, children }: { email: string; admin: boolea
       close: () => dispatch({ type: 'close' }),
     }}>
       <div className="flex h-screen flex-col bg-paper text-ink">
-        <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-line bg-white px-4">
-          <button type="button" className="rounded-md p-1.5 text-navy hover:bg-paper md:hidden" aria-label="Open navigation" onClick={() => setRailOpen(true)}>
+        <header className="flex h-[52px] shrink-0 items-center gap-1.5 border-b border-line bg-white px-3 sm:gap-3 sm:px-4">
+          <button type="button" className="shrink-0 rounded-md p-1.5 text-navy hover:bg-paper md:hidden" aria-label="Open navigation" onClick={() => setRailOpen(true)}>
             <Menu size={18} />
           </button>
-          <Link href="/" className="font-display text-[15px] font-bold text-navy">MB Intelligence</Link>
+          <Link href="/" className="min-w-0 truncate font-display text-xs font-bold tracking-tight text-navy min-[400px]:text-[13px] min-[400px]:tracking-normal sm:text-[15px]">MB Intelligence</Link>
           <span className="hidden rounded-full border border-line px-2 py-0.5 text-[11px] text-muted sm:inline">Core · 250–999 · planning</span>
-          <span className="flex-1" />
-          <span className="hidden text-xs text-muted lg:inline">{email}</span>
-          <Button variant="outline" size="sm" onClick={() => dispatch({ type: 'open-ask' })}>
+          <span className="min-w-2 flex-1" />
+          <span className="hidden max-w-[12rem] truncate text-xs text-muted lg:inline">{email}</span>
+          <NotionCta tone="ghost" size="sm" className="shrink-0 max-[420px]:px-2 max-[420px]:text-[11px]" />
+          <Button variant="outline" size="sm" className="shrink-0" onClick={() => dispatch({ type: 'open-ask' })}>
             <Sparkles size={14} /> Ask
           </Button>
         </header>
@@ -118,6 +120,7 @@ export function Shell({ email, admin, children }: { email: string; admin: boolea
             <button type="button" onClick={() => dispatch({ type: 'open-ask' })} className="mt-1 flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm font-medium text-ink hover:bg-paper">
               <Sparkles size={16} /> Ask AI
             </button>
+            <NotionRailLink />
             {admin ? <Link href="/council" className={`mt-6 block rounded-md px-2.5 py-2 text-sm font-medium ${pathname === '/council' ? 'bg-mist text-accent' : 'text-muted hover:bg-paper'}`}>Council</Link> : null}
             <form action="/api/auth/logout" method="post" className="mt-4 px-2">
               <button type="submit" className="text-xs text-muted hover:text-navy">Sign out</button>
@@ -132,7 +135,7 @@ export function Shell({ email, admin, children }: { email: string; admin: boolea
               <X size={18} />
             </button>
           </div>
-          {drawer.kind === 'ask' ? <AskPanel /> : null}
+          {drawer.kind === 'ask' ? <AskPanel source={askSource} /> : null}
           {drawer.kind === 'detail' ? <DetailBody detail={drawer.detail} /> : null}
         </aside>
       </div>
